@@ -1,161 +1,647 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#3B1F0D">
-  <title>GerCafe — Commander</title>
-  <link rel="stylesheet" href="style.css">
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-</head>
-<body>
+/* ════════════════════════════════════════
+   GERCAFE WEB CLIENT — THÈME GRAIN DE CAFÉ
+   ════════════════════════════════════════ */
 
-  <div id="ecran-chargement" class="ecran actif">
-    <div class="logo-grand">☕</div>
-    <h1 class="nom-cafe">GerCafe</h1>
-    <div class="spinner"></div>
-    <p class="chargement-texte">Chargement du menu…</p>
-  </div>
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
-  <div id="ecran-accueil" class="ecran">
-    <div class="header-cafe">
-      <div class="logo-cercle">☕</div>
-      <h1 class="nom-cafe-header">GerCafe</h1>
-      <p id="bienvenue-table" class="bienvenue-txt">Bienvenue !</p>
-    </div>
-    <div class="boutons-accueil">
-      <button class="btn-carre" onclick="afficherEcran('ecran-menu')">
-        <span class="btn-icone">🍽️</span>
-        <span class="btn-label">MENU</span>
-      </button>
-      <button class="btn-carre btn-carre-principal" onclick="afficherEcran('ecran-personnes')">
-        <span class="btn-icone">📋</span>
-        <span class="btn-label">COMMANDER</span>
-      </button>
-    </div>
-    <button class="btn-appel" onclick="appelServeur()">
-      🔔 APPELER LE SERVEUR
-    </button>
-  </div>
+:root {
+  --espresso:  #1C0A00;
+  --arabica:   #3B1F0D;
+  --robusta:   #6B3A2A;
+  --moka:      #9C5C38;
+  --caramel:   #C8853A;
+  --latte:     #D4A96A;
+  --creme:     #F0DDB8;
+  --mousse:    #FAF3E8;
+  --blanc:     #FFFFFF;
+  --success:   #2E7D4F;
+  --alert:     #D4520A;
+  --danger:    #C0392B;
+  --radius:    16px;
+  --shadow:    0 4px 20px rgba(28,10,0,0.10);
+}
 
-  <div id="ecran-menu" class="ecran">
-    <div class="top-bar">
-      <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
-      <h2>Notre Menu</h2>
-    </div>
-    <div id="liste-menu" class="liste-produits"></div>
-  </div>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--mousse);
+  color: var(--arabica);
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  -webkit-font-smoothing: antialiased;
+}
 
-  <div id="ecran-personnes" class="ecran">
-    <div class="top-bar">
-      <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
-      <h2>Combien de personnes ?</h2>
-    </div>
-    <div class="centre">
-      <div class="personnes-icones" id="icones-personnes">👤</div>
-      <div class="compteur">
-        <button class="btn-compteur" onclick="modifierPersonnes(-1)">−</button>
-        <span id="nb-personnes">1</span>
-        <button class="btn-compteur" onclick="modifierPersonnes(1)">+</button>
-      </div>
-      <button class="btn-principal" onclick="afficherEcran('ecran-commande')">Suivant →</button>
-    </div>
-  </div>
+/* ════════════════════════════════════════
+   ÉCRANS
+   ════════════════════════════════════════ */
+.ecran {
+  display: none;
+  min-height: 100vh;
+  flex-direction: column;
+  padding-bottom: 80px;
+}
 
-  <div id="ecran-commande" class="ecran">
-    <div class="top-bar">
-      <button class="btn-retour" onclick="afficherEcran('ecran-personnes')">← Retour</button>
-      <h2>Votre commande</h2>
-    </div>
-    <p id="info-table-commande" class="info-table"></p>
-    <div id="liste-commande" class="liste-produits"></div>
-    <div class="footer-commande">
-      <div class="total-ligne">
-        <span>Total :</span>
-        <span id="total-commande">0.00 Dh</span>
-      </div>
-      <button class="btn-principal" onclick="afficherRecap()">Récapitulatif →</button>
-    </div>
-  </div>
+.ecran.actif { display: flex; }
 
-  <div id="ecran-recap" class="ecran">
-    <div class="top-bar">
-      <button class="btn-retour" onclick="afficherEcran('ecran-commande')">← Retour</button>
-      <h2>Récapitulatif</h2>
-    </div>
-    <p id="info-table-recap" class="info-table"></p>
-    <div id="liste-recap" class="liste-recap"></div>
-    <div class="footer-commande">
-      <div class="total-ligne">
-        <span>Total :</span>
-        <span id="total-recap">0.00 Dh</span>
-      </div>
-      <button class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER LA COMMANDE</button>
-    </div>
-  </div>
+/* ════════════════════════════════════════
+   ÉCRAN CHARGEMENT
+   ════════════════════════════════════════ */
+#ecran-chargement {
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  background: linear-gradient(160deg, var(--espresso), var(--arabica));
+}
 
-  <div id="ecran-attente" class="ecran">
-    <div class="centre">
-      <div class="logo-grand">☕</div>
-      <h2>Votre commande est<br>en préparation…</h2>
-      <div class="spinner"></div>
-      <div class="ref-commande">
-        <p>Référence</p>
-        <h3 id="ref-affichee">------</h3>
-      </div>
-      <p id="table-affichee" class="info-table"></p>
-      <p class="attente-sous">Le serveur s'occupe de vous très bientôt ☕</p>
-    </div>
-  </div>
+.logo-grand {
+  font-size: 4.5rem;
+  text-align: center;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
 
-  <div id="ecran-servie" class="ecran">
-    <div class="centre">
-      <div class="logo-grand">✅</div>
-      <h2>Bonne dégustation !</h2>
-      <p class="sous-titre">Votre commande a été servie.</p>
-      <div class="boutons-fin">
-        <button class="btn-payer" onclick="demanderPaiement()">💳 PAYER</button>
-        <button class="btn-secondaire" onclick="nouvelleCommande()">📋 Nouvelle commande</button>
-      </div>
-    </div>
-  </div>
+.nom-cafe {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--latte);
+  letter-spacing: 3px;
+  text-align: center;
+}
 
-  <div id="ecran-paiement" class="ecran">
-    <div class="centre">
-      <div class="logo-grand">💳</div>
-      <h2>Paiement en cours…</h2>
-      <p class="sous-titre">Le serveur va confirmer votre paiement.</p>
-      <div class="spinner"></div>
-    </div>
-  </div>
+.chargement-texte {
+  color: rgba(240,221,184,0.6);
+  font-size: 0.9rem;
+}
 
-  <div id="ecran-merci" class="ecran">
-    <div class="centre">
-      <div class="logo-grand">🙏</div>
-      <h2>Merci pour votre visite !</h2>
-      <p class="sous-titre">À bientôt au GerCafe.</p>
-      <button class="btn-principal" onclick="recommencer()">Nouvelle session</button>
-    </div>
-  </div>
+.spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(212,169,106,0.25);
+  border-top-color: var(--latte);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
-  <!-- ÉCRAN TABLE RÉSERVÉE -->
-  <div id="ecran-reserve" class="ecran">
-    <div class="centre">
-      <div class="reserve-icone">🔒</div>
-      <h2 class="reserve-titre">Table réservée</h2>
-      <div class="reserve-badge">Table <span id="reserve-table-num">?</span></div>
-      <p class="reserve-texte">
-        Cette table est actuellement occupée par un autre client.<br>
-        Veuillez scanner le QR code de votre propre table.
-      </p>
-      <div class="reserve-attente">
-        <div class="spinner"></div>
-        <p>Vérification automatique toutes les 10 secondes…</p>
-      </div>
-    </div>
-  </div>
+@keyframes spin { to { transform: rotate(360deg); } }
 
-  <script src="app.js"></script>
-</body>
-</html>
+/* ════════════════════════════════════════
+   HEADER CAFÉ (écran accueil)
+   ════════════════════════════════════════ */
+.header-cafe {
+  background: linear-gradient(135deg, var(--espresso), var(--arabica), #4A2515);
+  padding: 44px 24px 36px;
+  text-align: center;
+  border-radius: 0 0 32px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.header-cafe::before {
+  content: '☕';
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  font-size: 72px;
+  opacity: 0.05;
+  pointer-events: none;
+}
+
+.logo-cercle {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--latte), var(--caramel));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  margin: 0 auto 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+  border: 2px solid rgba(212,169,106,0.3);
+}
+
+.nom-cafe-header {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--latte);
+  letter-spacing: 3px;
+  margin-bottom: 6px;
+}
+
+.bienvenue-txt {
+  font-size: 1rem;
+  color: rgba(240,221,184,0.75);
+  font-weight: 500;
+}
+
+/* ════════════════════════════════════════
+   BOUTONS ACCUEIL
+   ════════════════════════════════════════ */
+.boutons-accueil {
+  display: flex;
+  gap: 16px;
+  padding: 28px 24px 16px;
+  justify-content: center;
+}
+
+.btn-carre {
+  flex: 1;
+  max-width: 156px;
+  aspect-ratio: 1;
+  border: none;
+  border-radius: 20px;
+  background: var(--blanc);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+  border: 1.5px solid var(--creme);
+}
+
+.btn-carre:active { transform: scale(0.96); }
+
+.btn-carre-principal {
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(107,58,42,0.35);
+}
+
+.btn-carre-principal .btn-label { color: var(--creme); }
+
+.btn-icone { font-size: 2.4rem; }
+
+.btn-label {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--robusta);
+  letter-spacing: 1.5px;
+}
+
+/* ════════════════════════════════════════
+   BOUTON APPEL SERVEUR
+   ════════════════════════════════════════ */
+.btn-appel {
+  display: block;
+  width: calc(100% - 48px);
+  margin: 8px auto 0;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--alert), #B34500);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(212,82,10,0.35);
+  letter-spacing: 0.5px;
+  transition: transform 0.15s;
+}
+
+.btn-appel:active { transform: scale(0.98); }
+
+/* ════════════════════════════════════════
+   TOP BAR (navigation)
+   ════════════════════════════════════════ */
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--arabica), var(--robusta));
+  color: white;
+  box-shadow: 0 2px 12px rgba(28,10,0,0.2);
+}
+
+.top-bar h2 {
+  font-size: 1.1rem;
+  flex: 1;
+  color: var(--creme);
+  letter-spacing: 0.3px;
+}
+
+.btn-retour {
+  border: none;
+  background: rgba(255,255,255,0.12);
+  color: var(--latte);
+  font-size: 0.95rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+
+.btn-retour:active { background: rgba(255,255,255,0.2); }
+
+/* ════════════════════════════════════════
+   LISTE PRODUITS
+   ════════════════════════════════════════ */
+.liste-produits {
+  padding: 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.categorie-titre {
+  background: linear-gradient(135deg, var(--robusta), var(--arabica));
+  color: var(--creme);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 16px 0 8px;
+}
+
+.categorie-titre:first-child { margin-top: 0; }
+
+.produit-item {
+  display: flex;
+  align-items: center;
+  background: var(--blanc);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 10px rgba(28,10,0,0.07);
+  border: 1.5px solid var(--creme);
+  transition: border-color 0.2s;
+}
+
+.produit-item.selectionne {
+  border-color: var(--robusta);
+  background: #FDF6EE;
+}
+
+.produit-icone {
+  font-size: 1.8rem;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.produit-info { flex: 1; }
+
+.produit-nom {
+  font-weight: 700;
+  color: var(--arabica);
+  font-size: 0.95rem;
+}
+
+.produit-prix {
+  font-size: 0.85rem;
+  color: var(--moka);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.produit-compteur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-compteur {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  transition: transform 0.1s;
+}
+
+.btn-compteur:first-child {
+  background: var(--creme);
+  color: var(--robusta);
+  border: 1.5px solid var(--creme);
+}
+
+.btn-compteur:last-child {
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  color: white;
+  box-shadow: 0 3px 8px rgba(107,58,42,0.3);
+}
+
+.btn-compteur:active { transform: scale(0.9); }
+
+.qte-affichage {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--arabica);
+  min-width: 24px;
+  text-align: center;
+}
+
+/* ════════════════════════════════════════
+   FOOTER COMMANDE (total + bouton)
+   ════════════════════════════════════════ */
+.footer-commande {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: var(--blanc);
+  padding: 14px 20px;
+  box-shadow: 0 -4px 20px rgba(28,10,0,0.10);
+  border-top: 1.5px solid var(--creme);
+}
+
+.total-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--arabica);
+}
+
+#total-commande, #total-recap {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--robusta);
+}
+
+/* ════════════════════════════════════════
+   BOUTONS PRINCIPAUX
+   ════════════════════════════════════════ */
+.btn-principal {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  color: var(--creme);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(107,58,42,0.35);
+  letter-spacing: 0.3px;
+  transition: transform 0.15s;
+}
+
+.btn-principal:active { transform: scale(0.98); }
+
+.btn-confirmer {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--success), #1a5c35);
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(46,125,79,0.35);
+  transition: transform 0.15s;
+}
+
+.btn-confirmer:active { transform: scale(0.98); }
+
+/* ════════════════════════════════════════
+   RÉCAPITULATIF
+   ════════════════════════════════════════ */
+.liste-recap {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 130px;
+}
+
+.recap-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--blanc);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(28,10,0,0.07);
+  border: 1.5px solid var(--creme);
+}
+
+.recap-nom {
+  font-weight: 700;
+  color: var(--arabica);
+  font-size: 0.95rem;
+}
+
+.recap-detail {
+  font-size: 0.82rem;
+  color: var(--moka);
+  margin-top: 2px;
+}
+
+.recap-prix {
+  font-weight: 800;
+  color: var(--robusta);
+  font-size: 0.95rem;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN NOMBRE DE PERSONNES
+   ════════════════════════════════════════ */
+.centre {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 32px 24px;
+  gap: 24px;
+  text-align: center;
+}
+
+.centre h2 {
+  color: var(--arabica);
+  font-size: 1.4rem;
+  line-height: 1.5;
+  font-weight: 800;
+}
+
+.personnes-icones {
+  font-size: 2rem;
+  min-height: 48px;
+  letter-spacing: 4px;
+}
+
+.compteur {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: var(--blanc);
+  padding: 16px 36px;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--creme);
+}
+
+.compteur .btn-compteur {
+  width: 46px;
+  height: 46px;
+  font-size: 1.5rem;
+}
+
+#nb-personnes {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--robusta);
+  min-width: 48px;
+  text-align: center;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN ATTENTE
+   ════════════════════════════════════════ */
+.ref-commande {
+  background: var(--blanc);
+  border-radius: 20px;
+  padding: 18px 36px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--creme);
+}
+
+.ref-commande p {
+  font-size: 0.8rem;
+  color: var(--moka);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.ref-commande h3 {
+  font-size: 2.2rem;
+  color: var(--robusta);
+  letter-spacing: 6px;
+  font-weight: 800;
+}
+
+.attente-sous {
+  font-size: 0.9rem;
+  color: var(--moka);
+  opacity: 0.8;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN SERVIE / MERCI
+   ════════════════════════════════════════ */
+.sous-titre {
+  font-size: 1rem;
+  color: var(--moka);
+  line-height: 1.5;
+}
+
+.boutons-fin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.btn-payer {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--success), #1a5c35);
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(46,125,79,0.35);
+  transition: transform 0.15s;
+}
+
+.btn-payer:active { transform: scale(0.98); }
+
+.btn-secondaire {
+  width: 100%;
+  padding: 14px;
+  border: 2px solid var(--robusta);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--robusta);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-secondaire:active {
+  background: var(--creme);
+}
+
+/* ════════════════════════════════════════
+   INFO TABLE & COMMUNS
+   ════════════════════════════════════════ */
+.info-table {
+  text-align: center;
+  color: var(--moka);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN TABLE RÉSERVÉE
+   ════════════════════════════════════════ */
+#ecran-reserve { background: var(--mousse); }
+
+.reserve-icone {
+  font-size: 5rem;
+  filter: drop-shadow(0 4px 12px rgba(192,57,43,0.3));
+}
+
+.reserve-titre {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--danger);
+  letter-spacing: 0.5px;
+}
+
+.reserve-badge {
+  background: linear-gradient(135deg, var(--danger), #8B1A0E);
+  color: white;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 16px rgba(192,57,43,0.35);
+}
+
+.reserve-texte {
+  font-size: 0.95rem;
+  color: var(--moka);
+  line-height: 1.6;
+  text-align: center;
+  max-width: 300px;
+  background: var(--blanc);
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--creme);
+  box-shadow: var(--shadow);
+}
+
+.reserve-attente {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.6;
+}
+
+.reserve-attente p {
+  font-size: 0.8rem;
+  color: var(--moka);
+}
