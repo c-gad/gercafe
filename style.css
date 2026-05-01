@@ -591,3 +591,57 @@ body {
   font-size: 0.9rem;
   padding: 8px;
 }
+
+/* ════════════════════════════════════════
+   ÉCRAN TABLE RÉSERVÉE
+   ════════════════════════════════════════ */
+#ecran-reserve { background: var(--mousse); }
+
+.reserve-icone {
+  font-size: 5rem;
+  filter: drop-shadow(0 4px 12px rgba(192,57,43,0.3));
+}
+
+.reserve-titre {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--danger);
+  letter-spacing: 0.5px;
+}
+
+.reserve-badge {
+  background: linear-gradient(135deg, var(--danger), #8B1A0E);
+  color: white;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 16px rgba(192,57,43,0.35);
+}
+
+.reserve-texte {
+  font-size: 0.95rem;
+  color: var(--moka);
+  line-height: 1.6;
+  text-align: center;
+  max-width: 300px;
+  background: var(--blanc);
+  padding: 16px 20px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--creme);
+  box-shadow: var(--shadow);
+}
+
+.reserve-attente {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  opacity: 0.6;
+}
+
+.reserve-attente p {
+  font-size: 0.8rem;
+  color: var(--moka);
+}
