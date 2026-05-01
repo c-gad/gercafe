@@ -1,165 +1,244 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* ════════════════════════════════════════
+   GERCAFE WEB CLIENT — THÈME GRAIN DE CAFÉ
+   ════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --brun: #6B3A2A;
-  --beige: #C8A97E;
-  --creme: #F5ECD7;
-  --blanc: #FAFAF5;
+  --espresso:  #1C0A00;
+  --arabica:   #3B1F0D;
+  --robusta:   #6B3A2A;
+  --moka:      #9C5C38;
+  --caramel:   #C8853A;
+  --latte:     #D4A96A;
+  --creme:     #F0DDB8;
+  --mousse:    #FAF3E8;
+  --blanc:     #FFFFFF;
+  --success:   #2E7D4F;
+  --alert:     #D4520A;
+  --danger:    #C0392B;
+  --radius:    16px;
+  --shadow:    0 4px 20px rgba(28,10,0,0.10);
 }
 
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background-color: var(--creme);
-  color: #333;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--mousse);
+  color: var(--arabica);
   min-height: 100vh;
   max-width: 480px;
   margin: 0 auto;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ════════════════════════════════════════
+   ÉCRANS
+   ════════════════════════════════════════ */
 .ecran {
   display: none;
   min-height: 100vh;
-  padding: 0 0 80px 0;
   flex-direction: column;
+  padding-bottom: 80px;
 }
 
-.ecran.actif {
-  display: flex;
-}
+.ecran.actif { display: flex; }
 
+/* ════════════════════════════════════════
+   ÉCRAN CHARGEMENT
+   ════════════════════════════════════════ */
 #ecran-chargement {
   justify-content: center;
   align-items: center;
   gap: 16px;
+  background: linear-gradient(160deg, var(--espresso), var(--arabica));
 }
 
-#ecran-chargement h1 {
-  color: var(--brun);
+.logo-grand {
+  font-size: 4.5rem;
+  text-align: center;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,0.4));
+}
+
+.nom-cafe {
   font-size: 2rem;
+  font-weight: 800;
+  color: var(--latte);
+  letter-spacing: 3px;
+  text-align: center;
+}
+
+.chargement-texte {
+  color: rgba(240,221,184,0.6);
+  font-size: 0.9rem;
 }
 
 .spinner {
-  width: 48px;
-  height: 48px;
-  border: 5px solid var(--beige);
-  border-top-color: var(--brun);
+  width: 44px;
+  height: 44px;
+  border: 4px solid rgba(212,169,106,0.25);
+  border-top-color: var(--latte);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.logo {
-  font-size: 4rem;
-  text-align: center;
-}
-
+/* ════════════════════════════════════════
+   HEADER CAFÉ (écran accueil)
+   ════════════════════════════════════════ */
 .header-cafe {
-  background: var(--brun);
-  color: white;
-  padding: 40px 24px 32px;
+  background: linear-gradient(135deg, var(--espresso), var(--arabica), #4A2515);
+  padding: 44px 24px 36px;
   text-align: center;
   border-radius: 0 0 32px 32px;
+  position: relative;
+  overflow: hidden;
 }
 
-.header-cafe .logo {
-  font-size: 3rem;
-  margin-bottom: 8px;
+.header-cafe::before {
+  content: '☕';
+  position: absolute;
+  right: 16px;
+  top: 12px;
+  font-size: 72px;
+  opacity: 0.05;
+  pointer-events: none;
 }
 
-.header-cafe h1 {
+.logo-cercle {
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, var(--latte), var(--caramel));
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  margin: 0 auto 12px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3);
+  border: 2px solid rgba(212,169,106,0.3);
+}
+
+.nom-cafe-header {
   font-size: 1.8rem;
-  margin-bottom: 4px;
+  font-weight: 800;
+  color: var(--latte);
+  letter-spacing: 3px;
+  margin-bottom: 6px;
 }
 
-.header-cafe p {
+.bienvenue-txt {
   font-size: 1rem;
-  opacity: 0.85;
+  color: rgba(240,221,184,0.75);
+  font-weight: 500;
 }
 
+/* ════════════════════════════════════════
+   BOUTONS ACCUEIL
+   ════════════════════════════════════════ */
 .boutons-accueil {
   display: flex;
   gap: 16px;
-  padding: 32px 24px 16px;
+  padding: 28px 24px 16px;
   justify-content: center;
 }
 
 .btn-carre {
   flex: 1;
-  max-width: 160px;
+  max-width: 156px;
   aspect-ratio: 1;
   border: none;
   border-radius: 20px;
-  background: white;
+  background: var(--blanc);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  box-shadow: 0 4px 16px rgba(107, 58, 42, 0.15);
-  transition: transform 0.15s;
+  gap: 10px;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+  border: 1.5px solid var(--creme);
 }
 
-.btn-carre:active {
-  transform: scale(0.96);
+.btn-carre:active { transform: scale(0.96); }
+
+.btn-carre-principal {
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  border-color: transparent;
+  box-shadow: 0 6px 20px rgba(107,58,42,0.35);
 }
 
-.btn-icone {
-  font-size: 2.5rem;
-}
+.btn-carre-principal .btn-label { color: var(--creme); }
+
+.btn-icone { font-size: 2.4rem; }
 
 .btn-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--brun);
-  letter-spacing: 1px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--robusta);
+  letter-spacing: 1.5px;
 }
 
+/* ════════════════════════════════════════
+   BOUTON APPEL SERVEUR
+   ════════════════════════════════════════ */
 .btn-appel {
   display: block;
   width: calc(100% - 48px);
   margin: 8px auto 0;
   padding: 16px;
   border: none;
-  border-radius: 16px;
-  background: #FB8C00;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--alert), #B34500);
   color: white;
   font-size: 1rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 16px rgba(251, 140, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(212,82,10,0.35);
+  letter-spacing: 0.5px;
+  transition: transform 0.15s;
 }
 
+.btn-appel:active { transform: scale(0.98); }
+
+/* ════════════════════════════════════════
+   TOP BAR (navigation)
+   ════════════════════════════════════════ */
 .top-bar {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px;
-  background: var(--brun);
+  padding: 16px 20px;
+  background: linear-gradient(135deg, var(--arabica), var(--robusta));
   color: white;
+  box-shadow: 0 2px 12px rgba(28,10,0,0.2);
 }
 
 .top-bar h2 {
   font-size: 1.1rem;
   flex: 1;
+  color: var(--creme);
+  letter-spacing: 0.3px;
 }
 
 .btn-retour {
   border: none;
-  background: transparent;
-  color: white;
-  font-size: 1rem;
+  background: rgba(255,255,255,0.12);
+  color: var(--latte);
+  font-size: 0.95rem;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  transition: background 0.15s;
 }
 
+.btn-retour:active { background: rgba(255,255,255,0.2); }
+
+/* ════════════════════════════════════════
+   LISTE PRODUITS
+   ════════════════════════════════════════ */
 .liste-produits {
   padding: 16px;
   overflow-y: auto;
@@ -167,43 +246,53 @@ body {
 }
 
 .categorie-titre {
-  background: var(--brun);
-  color: white;
-  padding: 8px 12px;
-  border-radius: 8px;
+  background: linear-gradient(135deg, var(--robusta), var(--arabica));
+  color: var(--creme);
+  padding: 8px 14px;
+  border-radius: 10px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
   margin: 16px 0 8px;
 }
+
+.categorie-titre:first-child { margin-top: 0; }
 
 .produit-item {
   display: flex;
   align-items: center;
-  background: white;
-  border-radius: 12px;
+  background: var(--blanc);
+  border-radius: var(--radius);
   padding: 12px 16px;
   margin-bottom: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 10px rgba(28,10,0,0.07);
+  border: 1.5px solid var(--creme);
+  transition: border-color 0.2s;
+}
+
+.produit-item.selectionne {
+  border-color: var(--robusta);
+  background: #FDF6EE;
 }
 
 .produit-icone {
   font-size: 1.8rem;
   margin-right: 12px;
+  flex-shrink: 0;
 }
 
-.produit-info {
-  flex: 1;
-}
+.produit-info { flex: 1; }
 
 .produit-nom {
-  font-weight: 600;
-  color: var(--brun);
+  font-weight: 700;
+  color: var(--arabica);
   font-size: 0.95rem;
 }
 
 .produit-prix {
   font-size: 0.85rem;
-  color: var(--beige);
+  color: var(--moka);
   font-weight: 600;
   margin-top: 2px;
 }
@@ -211,32 +300,156 @@ body {
 .produit-compteur {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .btn-compteur {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  border: 2px solid var(--brun);
-  background: white;
-  color: var(--brun);
-  font-size: 1.2rem;
+  border: none;
+  font-size: 1.3rem;
   cursor: pointer;
-  font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: bold;
+  transition: transform 0.1s;
 }
+
+.btn-compteur:first-child {
+  background: var(--creme);
+  color: var(--robusta);
+  border: 1.5px solid var(--creme);
+}
+
+.btn-compteur:last-child {
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  color: white;
+  box-shadow: 0 3px 8px rgba(107,58,42,0.3);
+}
+
+.btn-compteur:active { transform: scale(0.9); }
 
 .qte-affichage {
   font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--brun);
+  font-weight: 800;
+  color: var(--arabica);
   min-width: 24px;
   text-align: center;
 }
 
+/* ════════════════════════════════════════
+   FOOTER COMMANDE (total + bouton)
+   ════════════════════════════════════════ */
+.footer-commande {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  background: var(--blanc);
+  padding: 14px 20px;
+  box-shadow: 0 -4px 20px rgba(28,10,0,0.10);
+  border-top: 1.5px solid var(--creme);
+}
+
+.total-ligne {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--arabica);
+}
+
+#total-commande, #total-recap {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--robusta);
+}
+
+/* ════════════════════════════════════════
+   BOUTONS PRINCIPAUX
+   ════════════════════════════════════════ */
+.btn-principal {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  color: var(--creme);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(107,58,42,0.35);
+  letter-spacing: 0.3px;
+  transition: transform 0.15s;
+}
+
+.btn-principal:active { transform: scale(0.98); }
+
+.btn-confirmer {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--success), #1a5c35);
+  color: white;
+  font-size: 1.05rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(46,125,79,0.35);
+  transition: transform 0.15s;
+}
+
+.btn-confirmer:active { transform: scale(0.98); }
+
+/* ════════════════════════════════════════
+   RÉCAPITULATIF
+   ════════════════════════════════════════ */
+.liste-recap {
+  padding: 16px;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 130px;
+}
+
+.recap-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--blanc);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(28,10,0,0.07);
+  border: 1.5px solid var(--creme);
+}
+
+.recap-nom {
+  font-weight: 700;
+  color: var(--arabica);
+  font-size: 0.95rem;
+}
+
+.recap-detail {
+  font-size: 0.82rem;
+  color: var(--moka);
+  margin-top: 2px;
+}
+
+.recap-prix {
+  font-weight: 800;
+  color: var(--robusta);
+  font-size: 0.95rem;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN NOMBRE DE PERSONNES
+   ════════════════════════════════════════ */
 .centre {
   display: flex;
   flex-direction: column;
@@ -249,9 +462,10 @@ body {
 }
 
 .centre h2 {
-  color: var(--brun);
+  color: var(--arabica);
   font-size: 1.4rem;
-  line-height: 1.4;
+  line-height: 1.5;
+  font-weight: 800;
 }
 
 .personnes-icones {
@@ -264,138 +478,67 @@ body {
   display: flex;
   align-items: center;
   gap: 24px;
-  background: white;
-  padding: 16px 32px;
-  border-radius: 16px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  background: var(--blanc);
+  padding: 16px 36px;
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--creme);
 }
 
 .compteur .btn-compteur {
-  width: 44px;
-  height: 44px;
+  width: 46px;
+  height: 46px;
   font-size: 1.5rem;
 }
 
 #nb-personnes {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--brun);
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--robusta);
   min-width: 48px;
   text-align: center;
 }
 
-.footer-commande {
-  position: fixed;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-  background: white;
-  padding: 12px 16px;
-  box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-}
-
-.total-ligne {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--brun);
-}
-
-#total-commande, #total-recap {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--brun);
-}
-
-.btn-principal {
-  width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  background: var(--brun);
-  color: white;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-confirmer {
-  width: 100%;
-  padding: 16px;
-  border: none;
-  border-radius: 12px;
-  background: #43A047;
-  color: white;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.liste-recap {
-  padding: 16px;
-  flex: 1;
-  overflow-y: auto;
-  padding-bottom: 120px;
-}
-
-.recap-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: white;
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.recap-nom {
-  font-weight: 600;
-  color: var(--brun);
-}
-
-.recap-detail {
-  font-size: 0.85rem;
-  color: #666;
-  margin-top: 2px;
-}
-
-.recap-prix {
-  font-weight: 700;
-  color: var(--brun);
-}
-
+/* ════════════════════════════════════════
+   ÉCRAN ATTENTE
+   ════════════════════════════════════════ */
 .ref-commande {
-  background: white;
-  border-radius: 16px;
-  padding: 16px 32px;
+  background: var(--blanc);
+  border-radius: 20px;
+  padding: 18px 36px;
   text-align: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  box-shadow: var(--shadow);
+  border: 1.5px solid var(--creme);
 }
 
 .ref-commande p {
-  font-size: 0.85rem;
-  color: #666;
-  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: var(--moka);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
 }
 
 .ref-commande h3 {
-  font-size: 2rem;
-  color: var(--brun);
-  letter-spacing: 4px;
+  font-size: 2.2rem;
+  color: var(--robusta);
+  letter-spacing: 6px;
+  font-weight: 800;
 }
 
-.info-table {
-  text-align: center;
-  color: var(--beige);
-  font-weight: 600;
+.attente-sous {
   font-size: 0.9rem;
-  padding: 8px;
+  color: var(--moka);
+  opacity: 0.8;
+}
+
+/* ════════════════════════════════════════
+   ÉCRAN SERVIE / MERCI
+   ════════════════════════════════════════ */
+.sous-titre {
+  font-size: 1rem;
+  color: var(--moka);
+  line-height: 1.5;
 }
 
 .boutons-fin {
@@ -409,22 +552,42 @@ body {
   width: 100%;
   padding: 16px;
   border: none;
-  border-radius: 12px;
-  background: #43A047;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--success), #1a5c35);
   color: white;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 16px rgba(46,125,79,0.35);
+  transition: transform 0.15s;
 }
+
+.btn-payer:active { transform: scale(0.98); }
 
 .btn-secondaire {
   width: 100%;
   padding: 14px;
-  border: 2px solid var(--brun);
-  border-radius: 12px;
+  border: 2px solid var(--robusta);
+  border-radius: var(--radius);
   background: transparent;
-  color: var(--brun);
+  color: var(--robusta);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn-secondaire:active {
+  background: var(--creme);
+}
+
+/* ════════════════════════════════════════
+   INFO TABLE & COMMUNS
+   ════════════════════════════════════════ */
+.info-table {
+  text-align: center;
+  color: var(--moka);
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 8px;
 }
