@@ -1,6 +1,5 @@
 // ════════════════════════════════════════════════════════════
-//  CONFIGURATION FIREBASE
-//  ⚠️ REMPLACEZ LES VALEURS CI-DESSOUS PAR LES VÔTRES
+//  CONFIGURATION FIREBASE — REMPLACEZ PAR VOS VALEURS
 // ════════════════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyCW7p8-mXaAcMBkXTTEFKHbay_lzI8tL18",
@@ -12,26 +11,39 @@ const firebaseConfig = {
   appId: "1:791896470488:web:6442b5a16ffbefe7b1b8ad"
 };
 
-// Initialiser Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ════════════════════════════════════════════════════════════
 //  VARIABLES GLOBALES
 // ════════════════════════════════════════════════════════════
-let numeroTable   = 0;
-let nbPersonnes   = 1;
-let produits      = {};
-let panier        = {};
-let commandeRef   = null;
+let numeroTable      = 0;
+let nbPersonnes      = 1;
+let produits         = {};
+let panier           = {};
+let commandeRef      = null;
 let ecouteurCommande = null;
+let sessionId        = null;
 
 // ════════════════════════════════════════════════════════════
-//  DÉMARRAGE : lecture de ?table=X dans l'URL
+//  ID DE SESSION UNIQUE PAR ONGLET/NAVIGATEUR
+// ════════════════════════════════════════════════════════════
+function genererSessionId() {
+  let sid = sessionStorage.getItem('gercafe_session');
+  if (!sid) {
+    sid = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    sessionStorage.setItem('gercafe_session', sid);
+  }
+  return sid;
+}
+
+// ════════════════════════════════════════════════════════════
+//  DÉMARRAGE
 // ════════════════════════════════════════════════════════════
 window.onload = function () {
   const urlParams = new URLSearchParams(window.location.search);
   numeroTable = parseInt(urlParams.get('table')) || 0;
+  sessionId   = genererSessionId();
 
   if (numeroTable === 0) {
     document.getElementById('bienvenue-table').textContent =
@@ -40,11 +52,82 @@ window.onload = function () {
     return;
   }
 
-  chargerProduits();
+  verifierSessionTable();
 };
 
 // ════════════════════════════════════════════════════════════
-//  CHARGER LES PRODUITS DEPUIS FIREBASE
+//  VÉRIFIER SI LA TABLE EST LIBRE OU PRISE
+// ════════════════════════════════════════════════════════════
+function verifierSessionTable() {
+  afficherEcran('ecran-chargement');
+
+  db.ref(`tables/${numeroTable}/session_web`).once('value', (snapshot) => {
+    const sessionExistante = snapshot.val();
+
+    if (!sessionExistante || sessionExistante === sessionId) {
+      // Libre ou déjà notre session → on entre
+      prendreTable();
+    } else {
+      // Une autre session active → bloquer
+      afficherEcranReserve();
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  PRENDRE LA TABLE
+// ════════════════════════════════════════════════════════════
+function prendreTable() {
+  db.ref(`tables/${numeroTable}/session_web`).set(sessionId)
+    .then(() => {
+      // Auto-libérer si l'onglet se ferme (Firebase onDisconnect)
+      db.ref(`tables/${numeroTable}/session_web`).onDisconnect().remove();
+      chargerProduits();
+    })
+    .catch(() => chargerProduits());
+}
+
+// ════════════════════════════════════════════════════════════
+//  AFFICHER L'ÉCRAN TABLE RÉSERVÉE
+// ════════════════════════════════════════════════════════════
+function afficherEcranReserve() {
+  document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
+  const ecran = document.getElementById('ecran-reserve');
+  if (ecran) {
+    ecran.classList.add('actif');
+    document.getElementById('reserve-table-num').textContent = numeroTable;
+  }
+
+  // Réécouter toutes les 10 secondes si la table se libère
+  setTimeout(() => {
+    db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
+      const session = snap.val();
+      if (!session || session === sessionId) {
+        prendreTable();
+      } else {
+        afficherEcranReserve();
+      }
+    });
+  }, 10000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  LIBÉRER LA TABLE (fermeture onglet ou fin de session)
+// ════════════════════════════════════════════════════════════
+function libererTable() {
+  if (numeroTable && sessionId) {
+    db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
+      if (snap.val() === sessionId) {
+        db.ref(`tables/${numeroTable}/session_web`).remove();
+      }
+    });
+  }
+}
+
+window.addEventListener('beforeunload', libererTable);
+
+// ════════════════════════════════════════════════════════════
+//  CHARGER LES PRODUITS
 // ════════════════════════════════════════════════════════════
 function chargerProduits() {
   db.ref('produits').once('value', (snapshot) => {
@@ -66,7 +149,7 @@ function chargerProduits() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONSTRUIRE LE MENU (lecture seule, sans compteurs)
+//  CONSTRUIRE MENU (lecture seule)
 // ════════════════════════════════════════════════════════════
 function construireMenu() {
   const container = document.getElementById('liste-menu');
@@ -101,7 +184,7 @@ function construireMenu() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONSTRUIRE LA LISTE DE COMMANDE (avec compteurs +/−)
+//  CONSTRUIRE LISTE COMMANDE (avec +/−)
 // ════════════════════════════════════════════════════════════
 function construireListeCommande() {
   const container = document.getElementById('liste-commande');
@@ -123,7 +206,6 @@ function construireListeCommande() {
 
     items.forEach((item) => {
       panier[item.id] = 0;
-
       const el = document.createElement('div');
       el.className = 'produit-item';
       el.id = `item-${item.id}`;
@@ -145,28 +227,22 @@ function construireListeCommande() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  MODIFIER QUANTITÉ D'UN PRODUIT
+//  MODIFIER QUANTITÉ
 // ════════════════════════════════════════════════════════════
 function modifierQte(produitId, delta) {
   panier[produitId] = Math.max(0, (panier[produitId] || 0) + delta);
-
-  const qteEl = document.getElementById(`qte-${produitId}`);
-  if (qteEl) qteEl.textContent = panier[produitId];
-
+  const qteEl  = document.getElementById(`qte-${produitId}`);
   const itemEl = document.getElementById(`item-${produitId}`);
-  if (itemEl) {
-    itemEl.classList.toggle('selectionne', panier[produitId] > 0);
-  }
-
+  if (qteEl)  qteEl.textContent = panier[produitId];
+  if (itemEl) itemEl.classList.toggle('selectionne', panier[produitId] > 0);
   mettreAJourTotal();
 }
 
 function mettreAJourTotal() {
   let total = 0;
   Object.entries(panier).forEach(([id, qte]) => {
-    if (qte > 0 && produits[id]) {
+    if (qte > 0 && produits[id])
       total += parseFloat(produits[id].prix || 0) * qte;
-    }
   });
   document.getElementById('total-commande').textContent =
     total.toFixed(2) + ' Dh';
@@ -174,12 +250,11 @@ function mettreAJourTotal() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  MODIFIER LE NOMBRE DE PERSONNES
+//  MODIFIER NOMBRE DE PERSONNES
 // ════════════════════════════════════════════════════════════
 function modifierPersonnes(delta) {
   nbPersonnes = Math.max(1, Math.min(20, nbPersonnes + delta));
   document.getElementById('nb-personnes').textContent = nbPersonnes;
-
   let icones = '';
   for (let i = 0; i < Math.min(nbPersonnes, 10); i++) icones += '👤';
   if (nbPersonnes > 10) icones += ` +${nbPersonnes - 10}`;
@@ -187,14 +262,11 @@ function modifierPersonnes(delta) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  AFFICHER LE RÉCAPITULATIF
+//  RÉCAPITULATIF
 // ════════════════════════════════════════════════════════════
 function afficherRecap() {
-  const hasItems = Object.values(panier).some((qte) => qte > 0);
-  if (!hasItems) {
-    alert('Veuillez sélectionner au moins un produit');
-    return;
-  }
+  const hasItems = Object.values(panier).some(qte => qte > 0);
+  if (!hasItems) { alert('Veuillez sélectionner au moins un produit'); return; }
 
   const container = document.getElementById('liste-recap');
   container.innerHTML = '';
@@ -202,8 +274,8 @@ function afficherRecap() {
 
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      const produit = produits[id];
-      const prix = parseFloat(produit.prix || 0);
+      const produit   = produits[id];
+      const prix      = parseFloat(produit.prix || 0);
       const sousTotal = prix * qte;
       total += sousTotal;
 
@@ -220,16 +292,14 @@ function afficherRecap() {
     }
   });
 
-  document.getElementById('total-recap').textContent =
-    total.toFixed(2) + ' Dh';
+  document.getElementById('total-recap').textContent = total.toFixed(2) + ' Dh';
   afficherEcran('ecran-recap');
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONFIRMER LA COMMANDE → ÉCRITURE DANS FIREBASE
+//  CONFIRMER LA COMMANDE → FIREBASE
 // ════════════════════════════════════════════════════════════
 function confirmerCommande() {
-  // Générer une référence à 6 chiffres
   commandeRef = Math.floor(100000 + Math.random() * 900000).toString();
 
   let total = 0;
@@ -238,79 +308,47 @@ function confirmerCommande() {
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
       const produit = produits[id];
-      const prix = parseFloat(produit.prix || 0);
+      const prix    = parseFloat(produit.prix || 0);
       total += prix * qte;
-      produitsCommande[id] = {
-        nom:  produit.nom,
-        qte:  qte,
-        prix: prix,
-      };
+      produitsCommande[id] = { nom: produit.nom, qte, prix };
     }
   });
 
   const maintenant = new Date();
-  const heure = maintenant.toLocaleTimeString('fr-FR', {
-    hour: '2-digit', minute: '2-digit',
-  });
-  const date = maintenant.toLocaleDateString('fr-FR');
+  const heure = maintenant.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  const date  = maintenant.toLocaleDateString('fr-FR');
 
   const commande = {
-    ref:          commandeRef,
-    table:        numeroTable,
-    nb_personnes: nbPersonnes,
-    produits:     produitsCommande,
-    total:        parseFloat(total.toFixed(2)),
-    heure:        heure,
-    date:         date,
-    statut:       'en_attente',
-    appel_serveur: false,
+    ref: commandeRef, table: numeroTable, nb_personnes: nbPersonnes,
+    produits: produitsCommande, total: parseFloat(total.toFixed(2)),
+    heure, date, statut: 'en_attente', appel_serveur: false,
   };
 
-  // 1. Écrire la commande
-  db.ref(`commandes/${commandeRef}`)
-    .set(commande)
+  db.ref(`commandes/${commandeRef}`).set(commande)
+    .then(() => db.ref(`tables/${numeroTable}/statut`).set('en_attente'))
     .then(() => {
-      // 2. Mettre à jour le statut de la table
-      return db.ref(`tables/${numeroTable}/statut`).set('en_attente');
-    })
-    .then(() => {
-      // 3. Afficher l'écran d'attente
       document.getElementById('ref-affichee').textContent = commandeRef;
       afficherEcran('ecran-attente');
-      // 4. Écouter le changement de statut en temps réel
       ecouterStatutCommande();
     })
-    .catch((error) => {
-      alert('Erreur lors de la commande : ' + error.message);
-    });
+    .catch(error => alert('Erreur : ' + error.message));
 }
 
 // ════════════════════════════════════════════════════════════
-//  ÉCOUTER LE STATUT DE LA COMMANDE EN TEMPS RÉEL
-//  → réagit aux actions du serveur/admin dans l'app Flutter
+//  ÉCOUTER LE STATUT EN TEMPS RÉEL (réactions app Flutter)
 // ════════════════════════════════════════════════════════════
 function ecouterStatutCommande() {
-  // Nettoyer l'écouteur précédent s'il existe
-  if (ecouteurCommande) {
+  if (ecouteurCommande)
     db.ref(`commandes/${commandeRef}/statut`).off('value', ecouteurCommande);
-  }
 
   ecouteurCommande = db
     .ref(`commandes/${commandeRef}/statut`)
     .on('value', (snapshot) => {
       const statut = snapshot.val();
-      console.log(`Statut commande ${commandeRef} : ${statut}`);
-
-      if (statut === 'servie') {
-        // Le serveur a marqué la commande comme servie → afficher écran servie
-        afficherEcran('ecran-servie');
-
-      } else if (statut === 'demande_paiement') {
-        // Le serveur a vu la demande de paiement → rester sur écran paiement
-        afficherEcran('ecran-paiement');
-
-      } else if (statut === 'payee') {
-        // L'admin/serveur a confirmé le paiement → merci + reset après 5s
+      if      (statut === 'servie')           afficherEcran('ecran-servie');
+      else if (statut === 'demande_paiement') afficherEcran('ecran-paiement');
+      else if (statut === 'payee') {
+        libererTable();
         afficherEcran('ecran-merci');
         setTimeout(recommencer, 5000);
       }
@@ -318,81 +356,52 @@ function ecouterStatutCommande() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  APPELER LE SERVEUR (depuis l'écran accueil)
+//  APPELER LE SERVEUR
 // ════════════════════════════════════════════════════════════
 function appelServeur() {
   db.ref(`tables/${numeroTable}`)
-    .update({
-      statut:        'appel_serveur',
-      appel_serveur: true,
-    })
-    .then(() => {
-      alert('✅ Le serveur a été appelé !');
-    })
-    .catch((error) => {
-      alert('Erreur : ' + error.message);
-    });
+    .update({ statut: 'appel_serveur', appel_serveur: true })
+    .then(() => alert('✅ Le serveur a été appelé !'))
+    .catch(error => alert('Erreur : ' + error.message));
 }
 
 // ════════════════════════════════════════════════════════════
-//  DEMANDER LE PAIEMENT (depuis l'écran servie)
+//  DEMANDER LE PAIEMENT
 // ════════════════════════════════════════════════════════════
 function demanderPaiement() {
   db.ref(`commandes/${commandeRef}`)
-    .update({
-      statut:           'demande_paiement',
-      demande_paiement: true,
-    })
-    .then(() => {
-      return db.ref(`tables/${numeroTable}/statut`).set('demande_paiement');
-    })
-    .then(() => {
-      afficherEcran('ecran-paiement');
-    })
-    .catch((error) => {
-      alert('Erreur : ' + error.message);
-    });
+    .update({ statut: 'demande_paiement', demande_paiement: true })
+    .then(() => db.ref(`tables/${numeroTable}/statut`).set('demande_paiement'))
+    .then(() => afficherEcran('ecran-paiement'))
+    .catch(error => alert('Erreur : ' + error.message));
 }
 
 // ════════════════════════════════════════════════════════════
-//  NOUVELLE COMMANDE (depuis écran servie)
+//  NOUVELLE COMMANDE / RECOMMENCER
 // ════════════════════════════════════════════════════════════
 function nouvelleCommande() {
-  commandeRef  = null;
-  nbPersonnes  = 1;
-  panier       = {};
-
-  document.getElementById('nb-personnes').textContent  = '1';
+  commandeRef = null; nbPersonnes = 1; panier = {};
+  document.getElementById('nb-personnes').textContent    = '1';
   document.getElementById('icones-personnes').textContent = '👤';
-
   construireListeCommande();
   mettreAJourTotal();
   afficherEcran('ecran-personnes');
 }
 
-// ════════════════════════════════════════════════════════════
-//  RECOMMENCER (nouvelle session complète)
-// ════════════════════════════════════════════════════════════
 function recommencer() {
-  commandeRef  = null;
-  nbPersonnes  = 1;
-  panier       = {};
-
-  document.getElementById('nb-personnes').textContent  = '1';
+  commandeRef = null; nbPersonnes = 1; panier = {};
+  document.getElementById('nb-personnes').textContent    = '1';
   document.getElementById('icones-personnes').textContent = '👤';
-
   construireListeCommande();
   mettreAJourTotal();
   afficherEcran('ecran-accueil');
 }
 
 // ════════════════════════════════════════════════════════════
-//  NAVIGATION ENTRE ÉCRANS
+//  NAVIGATION ÉCRANS
 // ════════════════════════════════════════════════════════════
 function afficherEcran(idEcran) {
-  document.querySelectorAll('.ecran').forEach((ecran) => {
-    ecran.classList.remove('actif');
-  });
+  document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
   const cible = document.getElementById(idEcran);
   if (cible) cible.classList.add('actif');
 }
