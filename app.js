@@ -19,15 +19,15 @@ const db = firebase.database();
 // ════════════════════════════════════════════════════════════
 //  VARIABLES GLOBALES
 // ════════════════════════════════════════════════════════════
-let numeroTable = 0;
-let nbPersonnes = 1;
-let produits = {};
-let panier = {};
-let commandeRef = null;
+let numeroTable   = 0;
+let nbPersonnes   = 1;
+let produits      = {};
+let panier        = {};
+let commandeRef   = null;
 let ecouteurCommande = null;
 
 // ════════════════════════════════════════════════════════════
-//  DÉMARRAGE
+//  DÉMARRAGE : lecture de ?table=X dans l'URL
 // ════════════════════════════════════════════════════════════
 window.onload = function () {
   const urlParams = new URLSearchParams(window.location.search);
@@ -66,7 +66,7 @@ function chargerProduits() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONSTRUIRE LE MENU (lecture seule)
+//  CONSTRUIRE LE MENU (lecture seule, sans compteurs)
 // ════════════════════════════════════════════════════════════
 function construireMenu() {
   const container = document.getElementById('liste-menu');
@@ -92,7 +92,7 @@ function construireMenu() {
         <span class="produit-icone">${item.icone || '☕'}</span>
         <div class="produit-info">
           <div class="produit-nom">${item.nom}</div>
-          <div class="produit-prix">${item.prix.toFixed(2)} Dh</div>
+          <div class="produit-prix">${parseFloat(item.prix || 0).toFixed(2)} Dh</div>
         </div>
       `;
       container.appendChild(el);
@@ -101,7 +101,7 @@ function construireMenu() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONSTRUIRE LA LISTE DE COMMANDE
+//  CONSTRUIRE LA LISTE DE COMMANDE (avec compteurs +/−)
 // ════════════════════════════════════════════════════════════
 function construireListeCommande() {
   const container = document.getElementById('liste-commande');
@@ -126,11 +126,12 @@ function construireListeCommande() {
 
       const el = document.createElement('div');
       el.className = 'produit-item';
+      el.id = `item-${item.id}`;
       el.innerHTML = `
         <span class="produit-icone">${item.icone || '☕'}</span>
         <div class="produit-info">
           <div class="produit-nom">${item.nom}</div>
-          <div class="produit-prix">${item.prix.toFixed(2)} Dh</div>
+          <div class="produit-prix">${parseFloat(item.prix || 0).toFixed(2)} Dh</div>
         </div>
         <div class="produit-compteur">
           <button class="btn-compteur" onclick="modifierQte('${item.id}', -1)">−</button>
@@ -144,11 +145,19 @@ function construireListeCommande() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  MODIFIER QUANTITÉ
+//  MODIFIER QUANTITÉ D'UN PRODUIT
 // ════════════════════════════════════════════════════════════
 function modifierQte(produitId, delta) {
   panier[produitId] = Math.max(0, (panier[produitId] || 0) + delta);
-  document.getElementById(`qte-${produitId}`).textContent = panier[produitId];
+
+  const qteEl = document.getElementById(`qte-${produitId}`);
+  if (qteEl) qteEl.textContent = panier[produitId];
+
+  const itemEl = document.getElementById(`item-${produitId}`);
+  if (itemEl) {
+    itemEl.classList.toggle('selectionne', panier[produitId] > 0);
+  }
+
   mettreAJourTotal();
 }
 
@@ -156,25 +165,24 @@ function mettreAJourTotal() {
   let total = 0;
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      total += produits[id].prix * qte;
+      total += parseFloat(produits[id].prix || 0) * qte;
     }
   });
-  document.getElementById('total-commande').textContent = total.toFixed(2) + ' Dh';
+  document.getElementById('total-commande').textContent =
+    total.toFixed(2) + ' Dh';
   return total;
 }
 
 // ════════════════════════════════════════════════════════════
-//  NOMBRE DE PERSONNES
+//  MODIFIER LE NOMBRE DE PERSONNES
 // ════════════════════════════════════════════════════════════
 function modifierPersonnes(delta) {
   nbPersonnes = Math.max(1, Math.min(20, nbPersonnes + delta));
   document.getElementById('nb-personnes').textContent = nbPersonnes;
 
   let icones = '';
-  for (let i = 0; i < Math.min(nbPersonnes, 10); i++) {
-    icones += '👤';
-  }
-  if (nbPersonnes > 10) icones += `+${nbPersonnes - 10}`;
+  for (let i = 0; i < Math.min(nbPersonnes, 10); i++) icones += '👤';
+  if (nbPersonnes > 10) icones += ` +${nbPersonnes - 10}`;
   document.getElementById('icones-personnes').textContent = icones;
 }
 
@@ -195,15 +203,16 @@ function afficherRecap() {
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
       const produit = produits[id];
-      const sousTotal = produit.prix * qte;
+      const prix = parseFloat(produit.prix || 0);
+      const sousTotal = prix * qte;
       total += sousTotal;
 
       const el = document.createElement('div');
       el.className = 'recap-item';
       el.innerHTML = `
         <div>
-          <div class="recap-nom">${produit.icone} ${produit.nom}</div>
-          <div class="recap-detail">x${qte} × ${produit.prix.toFixed(2)} Dh</div>
+          <div class="recap-nom">${produit.icone || '☕'} ${produit.nom}</div>
+          <div class="recap-detail">x${qte} × ${prix.toFixed(2)} Dh</div>
         </div>
         <div class="recap-prix">${sousTotal.toFixed(2)} Dh</div>
       `;
@@ -211,14 +220,16 @@ function afficherRecap() {
     }
   });
 
-  document.getElementById('total-recap').textContent = total.toFixed(2) + ' Dh';
+  document.getElementById('total-recap').textContent =
+    total.toFixed(2) + ' Dh';
   afficherEcran('ecran-recap');
 }
 
 // ════════════════════════════════════════════════════════════
-//  CONFIRMER LA COMMANDE → FIREBASE
+//  CONFIRMER LA COMMANDE → ÉCRITURE DANS FIREBASE
 // ════════════════════════════════════════════════════════════
 function confirmerCommande() {
+  // Générer une référence à 6 chiffres
   commandeRef = Math.floor(100000 + Math.random() * 900000).toString();
 
   let total = 0;
@@ -227,127 +238,149 @@ function confirmerCommande() {
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
       const produit = produits[id];
-      total += produit.prix * qte;
+      const prix = parseFloat(produit.prix || 0);
+      total += prix * qte;
       produitsCommande[id] = {
-        nom: produit.nom,
-        qte: qte,
-        prix: produit.prix,
+        nom:  produit.nom,
+        qte:  qte,
+        prix: prix,
       };
     }
   });
 
   const maintenant = new Date();
   const heure = maintenant.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
+    hour: '2-digit', minute: '2-digit',
   });
   const date = maintenant.toLocaleDateString('fr-FR');
 
   const commande = {
-    ref: commandeRef,
-    table: numeroTable,
+    ref:          commandeRef,
+    table:        numeroTable,
     nb_personnes: nbPersonnes,
-    produits: produitsCommande,
-    total: total,
-    heure: heure,
-    date: date,
-    statut: 'en_attente',
+    produits:     produitsCommande,
+    total:        parseFloat(total.toFixed(2)),
+    heure:        heure,
+    date:         date,
+    statut:       'en_attente',
     appel_serveur: false,
   };
 
+  // 1. Écrire la commande
   db.ref(`commandes/${commandeRef}`)
     .set(commande)
     .then(() => {
-      // Mettre à jour le statut de la table
-      return db.ref(`tables/${numeroTable}`).update({
-        statut: 'en_attente',
-        commande_active: commandeRef
-      });
+      // 2. Mettre à jour le statut de la table
+      return db.ref(`tables/${numeroTable}/statut`).set('en_attente');
     })
     .then(() => {
+      // 3. Afficher l'écran d'attente
       document.getElementById('ref-affichee').textContent = commandeRef;
       afficherEcran('ecran-attente');
+      // 4. Écouter le changement de statut en temps réel
       ecouterStatutCommande();
     })
     .catch((error) => {
-      alert('Erreur lors de la commande: ' + error.message);
+      alert('Erreur lors de la commande : ' + error.message);
     });
 }
 
 // ════════════════════════════════════════════════════════════
-//  ÉCOUTER LE STATUT EN TEMPS RÉEL
+//  ÉCOUTER LE STATUT DE LA COMMANDE EN TEMPS RÉEL
+//  → réagit aux actions du serveur/admin dans l'app Flutter
 // ════════════════════════════════════════════════════════════
 function ecouterStatutCommande() {
+  // Nettoyer l'écouteur précédent s'il existe
   if (ecouteurCommande) {
     db.ref(`commandes/${commandeRef}/statut`).off('value', ecouteurCommande);
   }
 
-  ecouteurCommande = db.ref(`commandes/${commandeRef}/statut`).on('value', (snapshot) => {
-    const statut = snapshot.val();
+  ecouteurCommande = db
+    .ref(`commandes/${commandeRef}/statut`)
+    .on('value', (snapshot) => {
+      const statut = snapshot.val();
+      console.log(`Statut commande ${commandeRef} : ${statut}`);
 
-    if (statut === 'servie') {
-      db.ref(`tables/${numeroTable}/statut`).set('servie');
-      afficherEcran('ecran-servie');
-      afficherEcran('ecran-servie');
-    } else if (statut === 'payee') {
-      afficherEcran('ecran-merci');
-      setTimeout(recommencer, 5000);
-    }
-  });
-}
+      if (statut === 'servie') {
+        // Le serveur a marqué la commande comme servie → afficher écran servie
+        afficherEcran('ecran-servie');
 
-// ════════════════════════════════════════════════════════════
-//  APPEL SERVEUR
-// ════════════════════════════════════════════════════════════
-function appelServeur() {
-  db.ref('tables/' + numeroTable).update({
-    appel_serveur: true,
-    statut: 'appel_serveur'
-  }).then(function() {
-    alert('✅ Le serveur a été appelé !');
-  }).catch(function(error) {
-    alert('Erreur: ' + error.message);
-  });
-}
+      } else if (statut === 'demande_paiement') {
+        // Le serveur a vu la demande de paiement → rester sur écran paiement
+        afficherEcran('ecran-paiement');
 
-// ════════════════════════════════════════════════════════════
-//  DEMANDER LE PAIEMENT
-// ════════════════════════════════════════════════════════════
-function demanderPaiement() {
-  db.ref(`commandes/${commandeRef}`)
-    .update({
-      statut: 'demande_paiement',
-      demande_paiement: true,
-    })
-    .then(() => {
-      db.ref(`tables/${numeroTable}/statut`).set('demande_paiement');
-      afficherEcran('ecran-paiement');
+      } else if (statut === 'payee') {
+        // L'admin/serveur a confirmé le paiement → merci + reset après 5s
+        afficherEcran('ecran-merci');
+        setTimeout(recommencer, 5000);
+      }
     });
 }
 
 // ════════════════════════════════════════════════════════════
-//  NOUVELLE COMMANDE
+//  APPELER LE SERVEUR (depuis l'écran accueil)
+// ════════════════════════════════════════════════════════════
+function appelServeur() {
+  db.ref(`tables/${numeroTable}`)
+    .update({
+      statut:        'appel_serveur',
+      appel_serveur: true,
+    })
+    .then(() => {
+      alert('✅ Le serveur a été appelé !');
+    })
+    .catch((error) => {
+      alert('Erreur : ' + error.message);
+    });
+}
+
+// ════════════════════════════════════════════════════════════
+//  DEMANDER LE PAIEMENT (depuis l'écran servie)
+// ════════════════════════════════════════════════════════════
+function demanderPaiement() {
+  db.ref(`commandes/${commandeRef}`)
+    .update({
+      statut:           'demande_paiement',
+      demande_paiement: true,
+    })
+    .then(() => {
+      return db.ref(`tables/${numeroTable}/statut`).set('demande_paiement');
+    })
+    .then(() => {
+      afficherEcran('ecran-paiement');
+    })
+    .catch((error) => {
+      alert('Erreur : ' + error.message);
+    });
+}
+
+// ════════════════════════════════════════════════════════════
+//  NOUVELLE COMMANDE (depuis écran servie)
 // ════════════════════════════════════════════════════════════
 function nouvelleCommande() {
-  commandeRef = null;
-  panier = {};
-  nbPersonnes = 1;
-  document.getElementById('nb-personnes').textContent = '1';
+  commandeRef  = null;
+  nbPersonnes  = 1;
+  panier       = {};
+
+  document.getElementById('nb-personnes').textContent  = '1';
   document.getElementById('icones-personnes').textContent = '👤';
+
   construireListeCommande();
   mettreAJourTotal();
   afficherEcran('ecran-personnes');
 }
 
 // ════════════════════════════════════════════════════════════
-//  RECOMMENCER (nouvelle session)
+//  RECOMMENCER (nouvelle session complète)
 // ════════════════════════════════════════════════════════════
 function recommencer() {
-  commandeRef = null;
-  panier = {};
-  nbPersonnes = 1;
-  document.getElementById('nb-personnes').textContent = '1';
+  commandeRef  = null;
+  nbPersonnes  = 1;
+  panier       = {};
+
+  document.getElementById('nb-personnes').textContent  = '1';
   document.getElementById('icones-personnes').textContent = '👤';
+
   construireListeCommande();
   mettreAJourTotal();
   afficherEcran('ecran-accueil');
@@ -360,9 +393,6 @@ function afficherEcran(idEcran) {
   document.querySelectorAll('.ecran').forEach((ecran) => {
     ecran.classList.remove('actif');
   });
-
-  const ecranCible = document.getElementById(idEcran);
-  if (ecranCible) {
-    ecranCible.classList.add('actif');
-  }
+  const cible = document.getElementById(idEcran);
+  if (cible) cible.classList.add('actif');
 }
