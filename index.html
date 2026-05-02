@@ -6,15 +6,226 @@
   <meta name="theme-color" content="#3B1F0D">
   <title>GerCafe</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Police arabe -->
   <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* ══ POPUP APPEL SERVEUR ══ */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(28,10,0,0.55);
+      z-index: 1000;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .popup-overlay.ouvert { display: flex; }
+
+    .popup-sheet {
+      background: #fff;
+      border-radius: 28px 28px 0 0;
+      padding: 8px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+
+    .popup-handle {
+      width: 40px; height: 4px;
+      background: #F0DDB8;
+      border-radius: 2px;
+      margin: 12px auto 20px;
+    }
+
+    .popup-icone-grande {
+      font-size: 4rem;
+      text-align: center;
+      display: block;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 4px 10px rgba(212,82,10,0.3));
+    }
+
+    .popup-titre {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #3B1F0D;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .popup-sous {
+      font-size: 0.9rem;
+      color: #9C5C38;
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+
+    .popup-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .popup-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #FAF3E8;
+      border: 1.5px solid #F0DDB8;
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+      text-align: left;
+    }
+    .popup-option:active { transform: scale(0.98); background: #F0DDB8; }
+    [dir="rtl"] .popup-option { text-align: right; flex-direction: row-reverse; }
+
+    .popup-option-icone {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+    }
+
+    .popup-option-texte { flex: 1; }
+
+    .popup-option-titre {
+      font-weight: 700;
+      color: #3B1F0D;
+      font-size: 1rem;
+      display: block;
+    }
+
+    .popup-option-desc {
+      font-size: 0.8rem;
+      color: #9C5C38;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .popup-option-fleche {
+      color: #C8853A;
+      font-size: 1.1rem;
+    }
+    [dir="rtl"] .popup-option-fleche { transform: scaleX(-1); }
+
+    .popup-btn-fermer {
+      width: 100%;
+      padding: 14px;
+      border: 1.5px solid #F0DDB8;
+      border-radius: 12px;
+      background: transparent;
+      color: #9C5C38;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .popup-btn-fermer:active { background: #FAF3E8; }
+
+    /* ══ TOAST NOTIFICATION ══ */
+    .toast {
+      display: none;
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2E7D4F;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      z-index: 2000;
+      box-shadow: 0 4px 16px rgba(46,125,79,0.4);
+      white-space: nowrap;
+      animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity:0; transform: translateX(-50%) translateY(10px); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Bouton langue fixe */
+    .btn-langue-fixe {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 9999;
+      background: linear-gradient(135deg, #6B3A2A, #1C0A00);
+      color: #F0DDB8;
+      border: none;
+      border-radius: 50px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 3px 12px rgba(28,10,0,0.3);
+      transition: transform 0.15s;
+    }
+    .btn-langue-fixe:active { transform: scale(0.95); }
+    [dir="rtl"] .btn-langue-fixe { left: auto; right: 14px; }
+  </style>
 </head>
 <body>
 
-  <!-- ══ BOUTON LANGUE (fixe) ══ -->
+  <!-- ══ BOUTON LANGUE ══ -->
   <button id="btn-langue" class="btn-langue-fixe" onclick="changerLangue()">🇲🇦 ع</button>
+
+  <!-- ══ TOAST ══ -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ══════════════════════════════════
+       POPUP APPEL SERVEUR
+  ══════════════════════════════════ -->
+  <div id="popup-appel" class="popup-overlay" onclick="fermerPopupAppel(event)">
+    <div class="popup-sheet">
+      <div class="popup-handle"></div>
+      <span class="popup-icone-grande">🔔</span>
+      <div id="popup-titre" class="popup-titre">Besoin d'aide ?</div>
+      <div id="popup-sous" class="popup-sous">Choisissez ce dont vous avez besoin.<br>Le serveur arrive rapidement.</div>
+
+      <div class="popup-options">
+        <button class="popup-option" onclick="envoyerAppel('serveur')">
+          <span class="popup-option-icone">🧑‍🍳</span>
+          <span class="popup-option-texte">
+            <span id="opt-serveur-titre" class="popup-option-titre">Appeler le serveur</span>
+            <span id="opt-serveur-desc"  class="popup-option-desc">Le serveur vient à votre table</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+
+        <button class="popup-option" onclick="envoyerAppel('addition')">
+          <span class="popup-option-icone">💳</span>
+          <span class="popup-option-texte">
+            <span id="opt-addition-titre" class="popup-option-titre">Demander l'addition</span>
+            <span id="opt-addition-desc"  class="popup-option-desc">Préparer le paiement</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+
+        <button class="popup-option" onclick="envoyerAppel('eau')">
+          <span class="popup-option-icone">💧</span>
+          <span class="popup-option-texte">
+            <span id="opt-eau-titre" class="popup-option-titre">Demander de l'eau</span>
+            <span id="opt-eau-desc"  class="popup-option-desc">Carafe ou bouteille</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+      </div>
+
+      <button id="popup-btn-fermer" class="popup-btn-fermer" onclick="fermerPopupAppel()">Annuler</button>
+    </div>
+  </div>
 
   <!-- ══ ÉCRAN CHARGEMENT ══ -->
   <div id="ecran-chargement" class="ecran actif">
@@ -41,8 +252,8 @@
         <span id="txt-commander-btn" class="btn-label">COMMANDER</span>
       </button>
     </div>
-    <button class="btn-appel" onclick="appelServeur()">
-      <span id="txt-appel-btn">APPELER LE SERVEUR</span>
+    <button class="btn-appel" onclick="ouvrirPopupAppel()">
+      🔔 <span id="txt-appel-btn">APPELER LE SERVEUR</span>
     </button>
   </div>
 
@@ -89,7 +300,7 @@
     </div>
   </div>
 
-  <!-- ══ ÉCRAN RÉCAPITULATIF ══ -->
+  <!-- ══ ÉCRAN RÉCAP ══ -->
   <div id="ecran-recap" class="ecran">
     <div class="top-bar">
       <button class="btn-retour" onclick="afficherEcran('ecran-commande')">← Retour</button>
@@ -102,7 +313,7 @@
         <span class="label-total">Total :</span>
         <span class="valeur-total">0.00 Dh</span>
       </div>
-      <button id="btn-confirmer" class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER LA COMMANDE</button>
+      <button id="btn-confirmer" class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER</button>
     </div>
   </div>
 
@@ -118,6 +329,11 @@
       </div>
       <p id="table-affichee" class="info-table"></p>
       <p id="txt-attente-sous" class="attente-sous">Le serveur s'occupe de vous très bientôt ☕</p>
+      <!-- Bouton appel depuis attente -->
+      <button class="btn-appel" style="margin-top:16px;width:100%;max-width:340px"
+              onclick="ouvrirPopupAppel()">
+        🔔 <span class="txt-appel-inline">APPELER LE SERVEUR</span>
+      </button>
     </div>
   </div>
 
@@ -130,6 +346,9 @@
       <div class="boutons-fin">
         <button id="btn-payer" class="btn-payer" onclick="demanderPaiement()">💳 PAYER</button>
         <button id="btn-nouvelle-cmd" class="btn-secondaire" onclick="nouvelleCommande()">📋 Nouvelle commande</button>
+        <button class="btn-appel" onclick="ouvrirPopupAppel()">
+          🔔 <span class="txt-appel-inline">APPELER LE SERVEUR</span>
+        </button>
       </div>
     </div>
   </div>
@@ -164,7 +383,6 @@
       </div>
       <p id="txt-reserve-texte" class="reserve-texte">
         Cette table est actuellement occupée par un autre client.
-        Veuillez scanner le QR code de votre propre table.
       </p>
       <div class="reserve-attente">
         <div class="spinner"></div>
