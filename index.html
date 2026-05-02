@@ -1,23 +1,30 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#3B1F0D">
-  <title>GerCafe — Commander</title>
+  <title>GerCafe</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Police arabe -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
+  <!-- ══ BOUTON LANGUE (fixe) ══ -->
+  <button id="btn-langue" class="btn-langue-fixe" onclick="changerLangue()">🇲🇦 ع</button>
+
+  <!-- ══ ÉCRAN CHARGEMENT ══ -->
   <div id="ecran-chargement" class="ecran actif">
     <div class="logo-grand">☕</div>
     <h1 class="nom-cafe">GerCafe</h1>
     <div class="spinner"></div>
-    <p class="chargement-texte">Chargement du menu…</p>
+    <p id="txt-chargement" class="chargement-texte">Chargement du menu…</p>
   </div>
 
+  <!-- ══ ÉCRAN ACCUEIL ══ -->
   <div id="ecran-accueil" class="ecran">
     <div class="header-cafe">
       <div class="logo-cercle">☕</div>
@@ -27,30 +34,32 @@
     <div class="boutons-accueil">
       <button class="btn-carre" onclick="afficherEcran('ecran-menu')">
         <span class="btn-icone">🍽️</span>
-        <span class="btn-label">MENU</span>
+        <span id="txt-menu-btn" class="btn-label">MENU</span>
       </button>
       <button class="btn-carre btn-carre-principal" onclick="afficherEcran('ecran-personnes')">
         <span class="btn-icone">📋</span>
-        <span class="btn-label">COMMANDER</span>
+        <span id="txt-commander-btn" class="btn-label">COMMANDER</span>
       </button>
     </div>
     <button class="btn-appel" onclick="appelServeur()">
-      🔔 APPELER LE SERVEUR
+      <span id="txt-appel-btn">APPELER LE SERVEUR</span>
     </button>
   </div>
 
+  <!-- ══ ÉCRAN MENU ══ -->
   <div id="ecran-menu" class="ecran">
     <div class="top-bar">
       <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
-      <h2>Notre Menu</h2>
+      <h2 id="titre-menu">Notre Menu</h2>
     </div>
     <div id="liste-menu" class="liste-produits"></div>
   </div>
 
+  <!-- ══ ÉCRAN PERSONNES ══ -->
   <div id="ecran-personnes" class="ecran">
     <div class="top-bar">
       <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
-      <h2>Combien de personnes ?</h2>
+      <h2 id="titre-personnes">Combien de personnes ?</h2>
     </div>
     <div class="centre">
       <div class="personnes-icones" id="icones-personnes">👤</div>
@@ -59,99 +68,107 @@
         <span id="nb-personnes">1</span>
         <button class="btn-compteur" onclick="modifierPersonnes(1)">+</button>
       </div>
-      <button class="btn-principal" onclick="afficherEcran('ecran-commande')">Suivant →</button>
+      <button id="btn-suivant" class="btn-principal" onclick="afficherEcran('ecran-commande')">Suivant →</button>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN COMMANDE ══ -->
   <div id="ecran-commande" class="ecran">
     <div class="top-bar">
       <button class="btn-retour" onclick="afficherEcran('ecran-personnes')">← Retour</button>
-      <h2>Votre commande</h2>
+      <h2 id="titre-commande">Votre commande</h2>
     </div>
     <p id="info-table-commande" class="info-table"></p>
     <div id="liste-commande" class="liste-produits"></div>
     <div class="footer-commande">
       <div class="total-ligne">
-        <span>Total :</span>
-        <span id="total-commande">0.00 Dh</span>
+        <span class="label-total">Total :</span>
+        <span class="valeur-total">0.00 Dh</span>
       </div>
       <button class="btn-principal" onclick="afficherRecap()">Récapitulatif →</button>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN RÉCAPITULATIF ══ -->
   <div id="ecran-recap" class="ecran">
     <div class="top-bar">
       <button class="btn-retour" onclick="afficherEcran('ecran-commande')">← Retour</button>
-      <h2>Récapitulatif</h2>
+      <h2 id="titre-recap">Récapitulatif</h2>
     </div>
     <p id="info-table-recap" class="info-table"></p>
     <div id="liste-recap" class="liste-recap"></div>
     <div class="footer-commande">
       <div class="total-ligne">
-        <span>Total :</span>
-        <span id="total-recap">0.00 Dh</span>
+        <span class="label-total">Total :</span>
+        <span class="valeur-total">0.00 Dh</span>
       </div>
-      <button class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER LA COMMANDE</button>
+      <button id="btn-confirmer" class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER LA COMMANDE</button>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN ATTENTE ══ -->
   <div id="ecran-attente" class="ecran">
     <div class="centre">
       <div class="logo-grand">☕</div>
-      <h2>Votre commande est<br>en préparation…</h2>
+      <h2 id="txt-en-preparation">Votre commande est<br>en préparation…</h2>
       <div class="spinner"></div>
       <div class="ref-commande">
-        <p>Référence</p>
+        <p id="txt-reference">Référence</p>
         <h3 id="ref-affichee">------</h3>
       </div>
       <p id="table-affichee" class="info-table"></p>
-      <p class="attente-sous">Le serveur s'occupe de vous très bientôt ☕</p>
+      <p id="txt-attente-sous" class="attente-sous">Le serveur s'occupe de vous très bientôt ☕</p>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN SERVIE ══ -->
   <div id="ecran-servie" class="ecran">
     <div class="centre">
       <div class="logo-grand">✅</div>
-      <h2>Bonne dégustation !</h2>
-      <p class="sous-titre">Votre commande a été servie.</p>
+      <h2 id="txt-bonne-deg">Bonne dégustation !</h2>
+      <p id="txt-servie-sous" class="sous-titre">Votre commande a été servie.</p>
       <div class="boutons-fin">
-        <button class="btn-payer" onclick="demanderPaiement()">💳 PAYER</button>
-        <button class="btn-secondaire" onclick="nouvelleCommande()">📋 Nouvelle commande</button>
+        <button id="btn-payer" class="btn-payer" onclick="demanderPaiement()">💳 PAYER</button>
+        <button id="btn-nouvelle-cmd" class="btn-secondaire" onclick="nouvelleCommande()">📋 Nouvelle commande</button>
       </div>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN PAIEMENT ══ -->
   <div id="ecran-paiement" class="ecran">
     <div class="centre">
       <div class="logo-grand">💳</div>
-      <h2>Paiement en cours…</h2>
-      <p class="sous-titre">Le serveur va confirmer votre paiement.</p>
+      <h2 id="txt-paiement">Paiement en cours…</h2>
+      <p id="txt-paiement-sous" class="sous-titre">Le serveur va confirmer votre paiement.</p>
       <div class="spinner"></div>
     </div>
   </div>
 
+  <!-- ══ ÉCRAN MERCI ══ -->
   <div id="ecran-merci" class="ecran">
     <div class="centre">
       <div class="logo-grand">🙏</div>
-      <h2>Merci pour votre visite !</h2>
-      <p class="sous-titre">À bientôt au GerCafe.</p>
-      <button class="btn-principal" onclick="recommencer()">Nouvelle session</button>
+      <h2 id="txt-merci">Merci pour votre visite !</h2>
+      <p id="txt-abientot" class="sous-titre">À bientôt au GerCafe.</p>
+      <button id="btn-session" class="btn-principal" onclick="recommencer()">Nouvelle session</button>
     </div>
   </div>
 
-  <!-- ÉCRAN TABLE RÉSERVÉE -->
+  <!-- ══ ÉCRAN TABLE RÉSERVÉE ══ -->
   <div id="ecran-reserve" class="ecran">
     <div class="centre">
       <div class="reserve-icone">🔒</div>
-      <h2 class="reserve-titre">Table réservée</h2>
-      <div class="reserve-badge">Table <span id="reserve-table-num">?</span></div>
-      <p class="reserve-texte">
-        Cette table est actuellement occupée par un autre client.<br>
+      <h2 id="txt-reserve-titre" class="reserve-titre">Table réservée</h2>
+      <div class="reserve-badge">
+        <span id="txt-table-label">Table</span> <span id="reserve-table-num">?</span>
+      </div>
+      <p id="txt-reserve-texte" class="reserve-texte">
+        Cette table est actuellement occupée par un autre client.
         Veuillez scanner le QR code de votre propre table.
       </p>
       <div class="reserve-attente">
         <div class="spinner"></div>
-        <p>Vérification automatique toutes les 10 secondes…</p>
+        <p id="txt-reserve-verif">Vérification automatique toutes les 10 secondes…</p>
       </div>
     </div>
   </div>
