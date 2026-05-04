@@ -15,106 +15,156 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // ════════════════════════════════════════════════════════════
+//  SONNERIE (Web Audio API — aucune dépendance externe)
+// ════════════════════════════════════════════════════════════
+let audioCtx = null;
+
+function jouerSonnerie(type = 'appel') {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const configs = {
+      appel: [
+        { freq: 880, dur: 0.15, delay: 0.0 },
+        { freq: 880, dur: 0.15, delay: 0.2 },
+        { freq: 1100, dur: 0.3,  delay: 0.4 },
+      ],
+      servie: [
+        { freq: 523, dur: 0.2,  delay: 0.0 },
+        { freq: 659, dur: 0.2,  delay: 0.25 },
+        { freq: 784, dur: 0.4,  delay: 0.5 },
+      ],
+      paiement: [
+        { freq: 440, dur: 0.15, delay: 0.0 },
+        { freq: 554, dur: 0.15, delay: 0.2 },
+        { freq: 659, dur: 0.15, delay: 0.4 },
+        { freq: 880, dur: 0.35, delay: 0.6 },
+      ],
+    };
+
+    const notes = configs[type] || configs.appel;
+    const now   = audioCtx.currentTime;
+
+    notes.forEach(({ freq, dur, delay }) => {
+      const osc  = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+
+      gain.gain.setValueAtTime(0.4, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
+
+      osc.start(now + delay);
+      osc.stop(now + delay + dur + 0.05);
+    });
+  } catch (e) {
+    console.log('Audio non supporté:', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
 //  TRADUCTIONS FR / AR
 // ════════════════════════════════════════════════════════════
 const TRAD = {
   fr: {
-    bienvenue:           (n) => `Table ${n} — Bienvenue !`,
-    chargement:          'Chargement du menu…',
-    menu:                'MENU',
-    commander:           'COMMANDER',
-    appeler_serveur:     '🔔 APPELER LE SERVEUR',
-    notre_menu:          'Notre Menu',
-    retour:              '← Retour',
-    nb_personnes:        'Combien de personnes ?',
-    suivant:             'Suivant →',
-    votre_commande:      'Votre commande',
-    recapitulatif:       'Récapitulatif',
-    confirmer:           '✅ CONFIRMER',
-    en_preparation:      'Votre commande est\nen préparation…',
-    reference:           'Référence',
-    attente_sous:        'Le serveur s\'occupe de vous très bientôt ☕',
-    bonne_degustation:   'Bonne dégustation !',
-    commande_servie:     'Votre commande a été servie.',
-    payer:               '💳 PAYER',
-    nouvelle_cmd:        '📋 Nouvelle commande',
-    paiement_cours:      'Paiement en cours…',
-    paiement_sous:       'Le serveur va confirmer votre paiement.',
-    merci:               'Merci pour votre visite !',
-    a_bientot:           'À bientôt au GerCafe.',
-    nouvelle_session:    'Nouvelle session',
-    total:               'Total :',
-    table_label:         'Table',
-    table_reservee:      'Table réservée',
-    table_occupee:       'Cette table est actuellement occupée par un autre client.',
-    verification:        'Vérification automatique toutes les 10 secondes…',
-    dh:                  'Dh',
-    selectionner:        'Veuillez sélectionner au moins un produit',
-    erreur:              'Erreur : ',
-    // Popup appel serveur
-    popup_titre:         'Besoin d\'aide ?',
-    popup_sous:          'Choisissez ce dont vous avez besoin.\nLe serveur arrive rapidement.',
-    opt_serveur_titre:   'Appeler le serveur',
-    opt_serveur_desc:    'Le serveur vient à votre table',
-    opt_addition_titre:  'Demander l\'addition',
-    opt_addition_desc:   'Préparer le paiement',
-    opt_eau_titre:       'Demander de l\'eau',
-    opt_eau_desc:        'Carafe ou bouteille',
-    popup_fermer:        'Annuler',
-    toast_serveur:       '✅ Le serveur arrive !',
-    toast_addition:      '💳 L\'addition est en route !',
-    toast_eau:           '💧 De l\'eau arrive !',
-    toast_erreur:        '❌ Erreur, réessayez',
-    langue_btn:          '🇲🇦 ع',
+    bienvenue:          (n) => `Table ${n} — Bienvenue !`,
+    chargement:         'Chargement du menu…',
+    menu:               'MENU',
+    commander:          'COMMANDER',
+    appeler_serveur:    'APPELER LE SERVEUR',
+    notre_menu:         'Notre Menu',
+    retour:             '← Retour',
+    nb_personnes:       'Combien de personnes ?',
+    suivant:            'Suivant →',
+    votre_commande:     'Votre commande',
+    recapitulatif:      'Récapitulatif',
+    confirmer:          '✅ CONFIRMER',
+    en_preparation:     'Votre commande est\nen préparation…',
+    reference:          'Référence',
+    attente_sous:       "Le serveur s'occupe de vous très bientôt ☕",
+    bonne_degustation:  'Bonne dégustation !',
+    commande_servie:    'Votre commande a été servie.',
+    payer:              '💳 PAYER',
+    nouvelle_cmd:       '📋 Nouvelle commande',
+    paiement_cours:     'Paiement en cours…',
+    paiement_sous:      'Le serveur va confirmer votre paiement.',
+    merci:              'Merci pour votre visite !',
+    a_bientot:          'À bientôt au GerCafe.',
+    nouvelle_session:   'Nouvelle session',
+    total:              'Total :',
+    table_label:        'Table',
+    table_reservee:     'Table réservée',
+    table_occupee:      'Cette table est actuellement occupée par un autre client.',
+    verification:       'Vérification automatique toutes les 10 secondes…',
+    dh:                 'Dh',
+    selectionner:       'Veuillez sélectionner au moins un produit',
+    erreur:             'Erreur : ',
+    popup_titre:        "Besoin d'aide ?",
+    popup_sous:         'Choisissez ce dont vous avez besoin.\nLe serveur arrive rapidement.',
+    opt_serveur_titre:  'Appeler le serveur',
+    opt_serveur_desc:   'Le serveur vient à votre table',
+    opt_addition_titre: "Demander l'addition",
+    opt_addition_desc:  'Préparer le paiement',
+    opt_eau_titre:      "Demander de l'eau",
+    opt_eau_desc:       'Carafe ou bouteille',
+    popup_fermer:       'Annuler',
+    toast_serveur:      '✅ Le serveur arrive !',
+    toast_addition:     '💳 L\'addition est en route !',
+    toast_eau:          '💧 De l\'eau arrive !',
+    toast_erreur:       '❌ Erreur, réessayez',
+    langue_btn:         '🇲🇦 ع',
   },
   ar: {
-    bienvenue:           (n) => `طاولة ${n} — أهلاً بك !`,
-    chargement:          'جارٍ تحميل القائمة…',
-    menu:                'القائمة',
-    commander:           'اطلب الآن',
-    appeler_serveur:     '🔔 استدعاء النادل',
-    notre_menu:          'قائمتنا',
-    retour:              'رجوع →',
-    nb_personnes:        'كم عدد الأشخاص ؟',
-    suivant:             '← التالي',
-    votre_commande:      'طلبك',
-    recapitulatif:       'ملخص الطلب',
-    confirmer:           '✅ تأكيد الطلب',
-    en_preparation:      'طلبك قيد\nالتحضير…',
-    reference:           'المرجع',
-    attente_sous:        'النادل في طريقه إليك ☕',
-    bonne_degustation:   'بالهناء والشفاء !',
-    commande_servie:     'تم تقديم طلبك.',
-    payer:               '💳 الدفع',
-    nouvelle_cmd:        '📋 طلب جديد',
-    paiement_cours:      'جارٍ الدفع…',
-    paiement_sous:       'سيقوم النادل بتأكيد الدفع.',
-    merci:               'شكراً لزيارتكم !',
-    a_bientot:           'إلى اللقاء في GerCafe.',
-    nouvelle_session:    'جلسة جديدة',
-    total:               ': المجموع',
-    table_label:         'طاولة',
-    table_reservee:      'الطاولة محجوزة',
-    table_occupee:       'هذه الطاولة مشغولة حالياً من طرف زبون آخر.',
-    verification:        'فحص تلقائي كل 10 ثوانٍ…',
-    dh:                  'درهم',
-    selectionner:        'الرجاء اختيار منتج واحد على الأقل',
-    erreur:              'خطأ : ',
-    // Popup
-    popup_titre:         'هل تحتاج مساعدة ؟',
-    popup_sous:          'اختر ما تحتاجه،\nالنادل سيصل بسرعة.',
-    opt_serveur_titre:   'استدعاء النادل',
-    opt_serveur_desc:    'النادل يأتي إلى طاولتك',
-    opt_addition_titre:  'طلب الحساب',
-    opt_addition_desc:   'التحضير للدفع',
-    opt_eau_titre:       'طلب الماء',
-    opt_eau_desc:        'إبريق أو زجاجة',
-    popup_fermer:        'إلغاء',
-    toast_serveur:       '✅ النادل في الطريق !',
-    toast_addition:      '💳 الحساب في الطريق !',
-    toast_eau:           '💧 الماء في الطريق !',
-    toast_erreur:        '❌ خطأ، حاول مجدداً',
-    langue_btn:          '🇫🇷 FR',
+    bienvenue:          (n) => `طاولة ${n} — أهلاً بك !`,
+    chargement:         'جارٍ تحميل القائمة…',
+    menu:               'القائمة',
+    commander:          'اطلب الآن',
+    appeler_serveur:    'استدعاء النادل',
+    notre_menu:         'قائمتنا',
+    retour:             'رجوع →',
+    nb_personnes:       'كم عدد الأشخاص ؟',
+    suivant:            '← التالي',
+    votre_commande:     'طلبك',
+    recapitulatif:      'ملخص الطلب',
+    confirmer:          '✅ تأكيد الطلب',
+    en_preparation:     'طلبك قيد\nالتحضير…',
+    reference:          'المرجع',
+    attente_sous:       'النادل في طريقه إليك ☕',
+    bonne_degustation:  'بالهناء والشفاء !',
+    commande_servie:    'تم تقديم طلبك.',
+    payer:              '💳 الدفع',
+    nouvelle_cmd:       '📋 طلب جديد',
+    paiement_cours:     'جارٍ الدفع…',
+    paiement_sous:      'سيقوم النادل بتأكيد الدفع.',
+    merci:              'شكراً لزيارتكم !',
+    a_bientot:          'إلى اللقاء في GerCafe.',
+    nouvelle_session:   'جلسة جديدة',
+    total:              ': المجموع',
+    table_label:        'طاولة',
+    table_reservee:     'الطاولة محجوزة',
+    table_occupee:      'هذه الطاولة مشغولة حالياً من طرف زبون آخر.',
+    verification:       'فحص تلقائي كل 10 ثوانٍ…',
+    dh:                 'درهم',
+    selectionner:       'الرجاء اختيار منتج واحد على الأقل',
+    erreur:             'خطأ : ',
+    popup_titre:        'هل تحتاج مساعدة ؟',
+    popup_sous:         'اختر ما تحتاجه،\nالنادل سيصل بسرعة.',
+    opt_serveur_titre:  'استدعاء النادل',
+    opt_serveur_desc:   'النادل يأتي إلى طاولتك',
+    opt_addition_titre: 'طلب الحساب',
+    opt_addition_desc:  'التحضير للدفع',
+    opt_eau_titre:      'طلب الماء',
+    opt_eau_desc:       'إبريق أو زجاجة',
+    popup_fermer:       'إلغاء',
+    toast_serveur:      '✅ النادل في الطريق !',
+    toast_addition:     '💳 الحساب في الطريق !',
+    toast_eau:          '💧 الماء في الطريق !',
+    toast_erreur:       '❌ خطأ، حاول مجدداً',
+    langue_btn:         '🇫🇷 FR',
   }
 };
 
@@ -148,7 +198,41 @@ function genererSessionId() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  APPLIQUER LA LANGUE — TOUS LES TEXTES DE LA PAGE
+//  SYNC IDENTITÉ CAFÉ DEPUIS FIREBASE
+//  Admin modifie → page web se met à jour automatiquement
+// ════════════════════════════════════════════════════════════
+function ecouterIdentiteCafe() {
+  db.ref('config/cafe').on('value', (snap) => {
+    if (!snap.exists()) return;
+    const config = snap.val();
+
+    // Nom du café
+    if (config.nom) {
+      document.querySelectorAll('.nom-cafe, .nom-cafe-header').forEach(el => {
+        el.textContent = config.nom.toUpperCase();
+      });
+      document.title = config.nom + ' — Commander';
+    }
+
+    // Logo
+    if (config.logoUrl) {
+      document.querySelectorAll('.logo-cercle, .logo-grand-cafe').forEach(el => {
+        el.innerHTML = `<img src="${config.logoUrl}" 
+          style="width:100%;height:100%;object-fit:cover;border-radius:50%;" 
+          alt="logo">`;
+      });
+    }
+
+    // Langue par défaut (si non forcée par l'utilisateur)
+    if (config.langue && !localStorage.getItem('gercafe_langue_force')) {
+      langue = config.langue;
+      appliquerLangue();
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  APPLIQUER LA LANGUE
 // ════════════════════════════════════════════════════════════
 function appliquerLangue() {
   const isAr = langue === 'ar';
@@ -158,11 +242,9 @@ function appliquerLangue() {
     ? "'Noto Naskh Arabic', 'Segoe UI', sans-serif"
     : "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
-  // Bouton langue
-  const bl = document.getElementById('btn-langue');
-  if (bl) bl.textContent = t('langue_btn');
+  const el = document.getElementById('btn-langue');
+  if (el) el.textContent = t('langue_btn');
 
-  // Map id → clé traduction
   const map = {
     'txt-chargement':      'chargement',
     'txt-menu-btn':        'menu',
@@ -189,7 +271,6 @@ function appliquerLangue() {
     'txt-table-label':     'table_label',
     'txt-reserve-texte':   'table_occupee',
     'txt-reserve-verif':   'verification',
-    // Popup
     'popup-titre':         'popup_titre',
     'popup-sous':          'popup_sous',
     'opt-serveur-titre':   'opt_serveur_titre',
@@ -206,7 +287,6 @@ function appliquerLangue() {
     if (el) el.textContent = t(key);
   });
 
-  // Labels avec classe
   document.querySelectorAll('.btn-retour').forEach(el => {
     el.textContent = t('retour');
   });
@@ -217,7 +297,6 @@ function appliquerLangue() {
     el.textContent = t('appeler_serveur');
   });
 
-  // Bienvenue table
   if (numeroTable > 0) {
     const bv = document.getElementById('bienvenue-table');
     if (bv) bv.textContent = t('bienvenue', numeroTable);
@@ -229,7 +308,6 @@ function appliquerLangue() {
     if (ta) ta.textContent = `${t('table_label')} ${numeroTable}`;
   }
 
-  // Reconstruire les listes
   if (Object.keys(produits).length > 0) {
     construireMenu();
     construireListeCommande();
@@ -239,6 +317,7 @@ function appliquerLangue() {
 function changerLangue() {
   langue = langue === 'fr' ? 'ar' : 'fr';
   localStorage.setItem('gercafe_langue', langue);
+  localStorage.setItem('gercafe_langue_force', '1'); // L'utilisateur a choisi manuellement
   appliquerLangue();
 }
 
@@ -246,11 +325,12 @@ function changerLangue() {
 //  POPUP APPEL SERVEUR
 // ════════════════════════════════════════════════════════════
 function ouvrirPopupAppel() {
+  // Débloquer le contexte audio au premier geste utilisateur
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
   document.getElementById('popup-appel').classList.add('ouvert');
 }
 
 function fermerPopupAppel(event) {
-  // Fermer seulement si clic sur l'overlay (pas sur la sheet)
   if (!event || event.target === document.getElementById('popup-appel')) {
     document.getElementById('popup-appel').classList.remove('ouvert');
   }
@@ -260,17 +340,20 @@ function envoyerAppel(type) {
   document.getElementById('popup-appel').classList.remove('ouvert');
 
   const updates = { appel_serveur: true };
-  let toastMsg = '';
+  let toastMsg  = '';
+  let sonType   = 'appel';
 
   if (type === 'serveur') {
-    updates.statut      = 'appel_serveur';
-    updates.type_appel  = 'serveur';
+    updates.statut     = 'appel_serveur';
+    updates.type_appel = 'serveur';
     toastMsg = t('toast_serveur');
+    sonType  = 'appel';
   } else if (type === 'addition') {
-    updates.statut          = 'demande_paiement';
-    updates.type_appel      = 'addition';
+    updates.statut           = 'demande_paiement';
+    updates.type_appel       = 'addition';
     updates.demande_paiement = true;
     toastMsg = t('toast_addition');
+    sonType  = 'paiement';
     if (commandeRef) {
       db.ref(`commandes/${commandeRef}`).update({
         statut: 'demande_paiement', demande_paiement: true,
@@ -280,7 +363,11 @@ function envoyerAppel(type) {
     updates.statut     = 'appel_serveur';
     updates.type_appel = 'eau';
     toastMsg = t('toast_eau');
+    sonType  = 'appel';
   }
+
+  // Jouer la sonnerie AVANT l'écriture Firebase
+  jouerSonnerie(sonType);
 
   db.ref(`tables/${numeroTable}`)
     .update(updates)
@@ -289,11 +376,11 @@ function envoyerAppel(type) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  TOAST NOTIFICATION
+//  TOAST
 // ════════════════════════════════════════════════════════════
 function afficherToast(message, couleur = '#2E7D4F') {
   const toast = document.getElementById('toast');
-  toast.textContent  = message;
+  toast.textContent      = message;
   toast.style.background = couleur;
   toast.style.display    = 'block';
   setTimeout(() => { toast.style.display = 'none'; }, 3000);
@@ -306,7 +393,9 @@ window.onload = function () {
   const urlParams = new URLSearchParams(window.location.search);
   numeroTable = parseInt(urlParams.get('table')) || 0;
   sessionId   = genererSessionId();
+
   appliquerLangue();
+  ecouterIdentiteCafe(); // ← sync logo/nom/langue depuis Firebase
 
   if (numeroTable === 0) {
     document.getElementById('bienvenue-table').textContent =
@@ -365,11 +454,20 @@ function libererTable() {
 window.addEventListener('beforeunload', libererTable);
 
 // ════════════════════════════════════════════════════════════
-//  PRODUITS
+//  CHARGER PRODUITS (depuis Firebase — sync avec ProduitsScreen)
 // ════════════════════════════════════════════════════════════
 function chargerProduits() {
   db.ref('produits').once('value', (snap) => {
-    produits = snap.val() || {};
+    produits = {};
+    if (snap.exists()) {
+      snap.forEach(child => {
+        const p = child.val();
+        // Afficher seulement les produits disponibles
+        if (p.disponible !== false) {
+          produits[child.key] = p;
+        }
+      });
+    }
     appliquerLangue();
     afficherEcran('ecran-accueil');
     construireMenu();
@@ -387,8 +485,9 @@ function construireMenu() {
   container.innerHTML = '';
   const cats = {};
   Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar' ? (p.categorie_ar || p.categorie || 'أخرى')
-                                : (p.categorie || 'Autre');
+    const cat = langue === 'ar'
+      ? (p.categorie_ar || p.categorie || 'أخرى')
+      : (p.categorie || 'Autre');
     if (!cats[cat]) cats[cat] = [];
     cats[cat].push({ id, ...p });
   });
@@ -418,8 +517,9 @@ function construireListeCommande() {
   panier = {};
   const cats = {};
   Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar' ? (p.categorie_ar || p.categorie || 'أخرى')
-                                : (p.categorie || 'Autre');
+    const cat = langue === 'ar'
+      ? (p.categorie_ar || p.categorie || 'أخرى')
+      : (p.categorie || 'Autre');
     if (!cats[cat]) cats[cat] = [];
     cats[cat].push({ id, ...p });
   });
@@ -493,9 +593,9 @@ function afficherRecap() {
   let total = 0;
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      const p = produits[id];
+      const p   = produits[id];
       const prix = parseFloat(p.prix||0);
-      const st   = prix * qte;
+      const st  = prix * qte;
       total += st;
       const el = document.createElement('div');
       el.className = 'recap-item';
@@ -515,7 +615,7 @@ function afficherRecap() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  COMMANDE → FIREBASE
+//  CONFIRMER COMMANDE
 // ════════════════════════════════════════════════════════════
 function confirmerCommande() {
   commandeRef = Math.floor(100000 + Math.random()*900000).toString();
@@ -523,7 +623,7 @@ function confirmerCommande() {
   const pc  = {};
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      const p = produits[id];
+      const p   = produits[id];
       const prix = parseFloat(p.prix||0);
       total += prix * qte;
       pc[id] = { nom: p.nom, qte, prix };
@@ -547,17 +647,22 @@ function confirmerCommande() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  ÉCOUTER STATUT
+//  ÉCOUTER STATUT + SONNERIE AUTO
 // ════════════════════════════════════════════════════════════
 function ecouterStatutCommande() {
   if (ecouteurCommande)
     db.ref(`commandes/${commandeRef}/statut`).off('value', ecouteurCommande);
+
   ecouteurCommande = db.ref(`commandes/${commandeRef}/statut`)
     .on('value', (snap) => {
       const s = snap.val();
-      if      (s === 'servie')           afficherEcran('ecran-servie');
-      else if (s === 'demande_paiement') afficherEcran('ecran-paiement');
-      else if (s === 'payee') {
+      if (s === 'servie') {
+        jouerSonnerie('servie');  // 🔔 Sonnerie quand commande servie
+        afficherEcran('ecran-servie');
+      } else if (s === 'demande_paiement') {
+        afficherEcran('ecran-paiement');
+      } else if (s === 'payee') {
+        jouerSonnerie('paiement'); // 🔔 Sonnerie paiement confirmé
         libererTable();
         afficherEcran('ecran-merci');
         setTimeout(recommencer, 5000);
@@ -566,6 +671,7 @@ function ecouterStatutCommande() {
 }
 
 function demanderPaiement() {
+  jouerSonnerie('paiement');
   db.ref(`commandes/${commandeRef}`)
     .update({ statut:'demande_paiement', demande_paiement:true })
     .then(() => db.ref(`tables/${numeroTable}/statut`).set('demande_paiement'))
