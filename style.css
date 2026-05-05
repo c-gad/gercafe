@@ -710,3 +710,114 @@ body {
 [dir="rtl"] .header-cafe {
   direction: rtl;
 }
+
+/* ════════════════════════════════════════
+   POPUP OPTIONS BOISSON
+   ════════════════════════════════════════ */
+.opt-boisson-titre {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--arabica);
+  text-align: center;
+  margin-bottom: 4px;
+  font-family: Georgia, serif;
+}
+
+.opt-boisson-sous {
+  font-size: 0.85rem;
+  color: var(--moka);
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.opt-section-titre {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--moka);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 14px 0 8px;
+}
+
+.opt-groupe {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.opt-btn {
+  flex: 1;
+  min-width: 80px;
+  padding: 10px 8px;
+  border: 2px solid var(--creme);
+  border-radius: 12px;
+  background: var(--mousse);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--arabica);
+  transition: all 0.15s;
+}
+
+.opt-btn:active { transform: scale(0.96); }
+
+.opt-btn.actif {
+  border-color: var(--robusta);
+  background: rgba(107, 58, 42, 0.1);
+  color: var(--robusta);
+}
+
+.opt-btn-icone { font-size: 1.4rem; }
+
+.opt-btn-sm {
+  flex-direction: row;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  gap: 6px;
+}
+
+.opt-zone {
+  flex-direction: column;
+  margin-top: 4px;
+}
+
+.opt-zone[style*="flex"] {
+  display: flex !important;
+  flex-direction: column;
+}
+
+.opt-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.opt-actions .popup-btn-fermer { flex: 0.6; }
+
+/* Badge options sur la carte produit */
+.badge-options {
+  font-size: 0.72rem;
+  color: var(--robusta);
+  font-weight: 600;
+  margin-top: 3px;
+  background: rgba(107,58,42,0.08);
+  padding: 2px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+/* Options dans le récapitulatif */
+.recap-options {
+  font-size: 0.78rem;
+  color: var(--moka);
+  font-style: italic;
+  margin: 2px 0 4px;
+}
+
+/* RTL support */
+[dir="rtl"] .opt-groupe { flex-direction: row-reverse; }
+[dir="rtl"] .opt-btn    { direction: rtl; }
