@@ -1,865 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#3B1F0D">
+  <title>GerCafe</title>
+  <link rel="stylesheet" href="style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 
-// Catégories qui déclenchent le popup options boisson
-const CATS_BOISSONS = ['cafés', 'thés & infusions', 'thes & infusions', 
-  'café', 'thé', 'infusions', 'the', 'cafes', 'boissons chaudes',
-  'المشروبات الساخنة', 'قهوة', 'شاي'];
+  <style>
+    /* ══ POPUP APPEL SERVEUR ══ */
+    .popup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(28,10,0,0.55);
+      z-index: 1000;
+      align-items: flex-end;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .popup-overlay.ouvert { display: flex; }
 
-function estCategorieBoisson(categorie) {
-  if (!categorie) return false;
-  const c = categorie.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-  return CATS_BOISSONS.some(b => c.includes(b.toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a')));
-}
-
-
-// Options boisson par produit : { produitId: { sucre, qte_sucre, sirop, type_sirop, saccharine } }
-const optionsPanier = {};
-
-// ════════════════════════════════════════════════════════════
-//  FIREBASE CONFIG — REMPLACEZ PAR VOS VALEURS
-// ════════════════════════════════════════════════════════════
-const firebaseConfig = {
-  apiKey: "AIzaSyCW7p8-mXaAcMBkXTTEFKHbay_lzI8tL18",
-  authDomain: "gercafe-hmfr.firebaseapp.com",
-  databaseURL: "https://gercafe-hmfr-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "gercafe-hmfr",
-  storageBucket: "gercafe-hmfr.firebasestorage.app",
-  messagingSenderId: "791896470488",
-  appId: "1:791896470488:web:6442b5a16ffbefe7b1b8ad"
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-
-// ════════════════════════════════════════════════════════════
-//  SONNERIE (Web Audio API — aucune dépendance externe)
-// ════════════════════════════════════════════════════════════
-let audioCtx = null;
-
-function jouerSonnerie(type = 'appel') {
-  try {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    const configs = {
-      appel: [
-        { freq: 880, dur: 0.15, delay: 0.0 },
-        { freq: 880, dur: 0.15, delay: 0.2 },
-        { freq: 1100, dur: 0.3,  delay: 0.4 },
-      ],
-      servie: [
-        { freq: 523, dur: 0.2,  delay: 0.0 },
-        { freq: 659, dur: 0.2,  delay: 0.25 },
-        { freq: 784, dur: 0.4,  delay: 0.5 },
-      ],
-      paiement: [
-        { freq: 440, dur: 0.15, delay: 0.0 },
-        { freq: 554, dur: 0.15, delay: 0.2 },
-        { freq: 659, dur: 0.15, delay: 0.4 },
-        { freq: 880, dur: 0.35, delay: 0.6 },
-      ],
-    };
-
-    const notes = configs[type] || configs.appel;
-    const now   = audioCtx.currentTime;
-
-    notes.forEach(({ freq, dur, delay }) => {
-      const osc  = audioCtx.createOscillator();
-      const gain = audioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + delay);
-
-      gain.gain.setValueAtTime(0.4, now + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
-
-      osc.start(now + delay);
-      osc.stop(now + delay + dur + 0.05);
-    });
-  } catch (e) {
-    console.log('Audio non supporté:', e);
-  }
-}
-
-// ════════════════════════════════════════════════════════════
-//  TRADUCTIONS FR / AR
-// ════════════════════════════════════════════════════════════
-const TRAD = {
-  fr: {
-    bienvenue:          (n) => `Table ${n} — Bienvenue !`,
-    chargement:         'Chargement du menu…',
-    menu:               'MENU',
-    commander:          'COMMANDER',
-    appeler_serveur:    'APPELER LE SERVEUR',
-    notre_menu:         'Notre Menu',
-    retour:             '← Retour',
-    nb_personnes:       'Combien de personnes ?',
-    suivant:            'Suivant →',
-    votre_commande:     'Votre commande',
-    recapitulatif:      'Récapitulatif',
-    confirmer:          '✅ CONFIRMER',
-    en_preparation:     'Votre commande est\nen préparation…',
-    reference:          'Référence',
-    attente_sous:       "Le serveur s'occupe de vous très bientôt ☕",
-    bonne_degustation:  'Bonne dégustation !',
-    commande_servie:    'Votre commande a été servie.',
-    payer:              '💳 PAYER',
-    nouvelle_cmd:       '📋 Nouvelle commande',
-    paiement_cours:     'Paiement en cours…',
-    paiement_sous:      'Le serveur va confirmer votre paiement.',
-    merci:              'Merci pour votre visite !',
-    a_bientot:          'À bientôt au GerCafe.',
-    nouvelle_session:   'Nouvelle session',
-    total:              'Total :',
-    table_label:        'Table',
-    table_reservee:     'Table réservée',
-    table_occupee:      'Cette table est actuellement occupée par un autre client.',
-    verification:       'Vérification automatique toutes les 10 secondes…',
-    dh:                 'Dh',
-    selectionner:       'Veuillez sélectionner au moins un produit',
-    erreur:             'Erreur : ',
-    popup_titre:        "Besoin d'aide ?",
-    popup_sous:         'Choisissez ce dont vous avez besoin.\nLe serveur arrive rapidement.',
-    opt_serveur_titre:  'Appeler le serveur',
-    opt_serveur_desc:   'Le serveur vient à votre table',
-    opt_addition_titre: "Demander l'addition",
-    opt_addition_desc:  'Préparer le paiement',
-    opt_eau_titre:      "Demander de l'eau",
-    opt_eau_desc:       'Carafe ou bouteille',
-    popup_fermer:       'Annuler',
-    toast_serveur:      '✅ Le serveur arrive !',
-    toast_addition:     '💳 L\'addition est en route !',
-    toast_eau:          '💧 De l\'eau arrive !',
-    toast_erreur:       '❌ Erreur, réessayez',
-    langue_btn:         '🇲🇦 ع',
-  },
-  ar: {
-    bienvenue:          (n) => `طاولة ${n} — أهلاً بك !`,
-    chargement:         'جارٍ تحميل القائمة…',
-    menu:               'القائمة',
-    commander:          'اطلب الآن',
-    appeler_serveur:    'استدعاء النادل',
-    notre_menu:         'قائمتنا',
-    retour:             'رجوع →',
-    nb_personnes:       'كم عدد الأشخاص ؟',
-    suivant:            '← التالي',
-    votre_commande:     'طلبك',
-    recapitulatif:      'ملخص الطلب',
-    confirmer:          '✅ تأكيد الطلب',
-    en_preparation:     'طلبك قيد\nالتحضير…',
-    reference:          'المرجع',
-    attente_sous:       'النادل في طريقه إليك ☕',
-    bonne_degustation:  'بالهناء والشفاء !',
-    commande_servie:    'تم تقديم طلبك.',
-    payer:              '💳 الدفع',
-    nouvelle_cmd:       '📋 طلب جديد',
-    paiement_cours:     'جارٍ الدفع…',
-    paiement_sous:      'سيقوم النادل بتأكيد الدفع.',
-    merci:              'شكراً لزيارتكم !',
-    a_bientot:          'إلى اللقاء في GerCafe.',
-    nouvelle_session:   'جلسة جديدة',
-    total:              ': المجموع',
-    table_label:        'طاولة',
-    table_reservee:     'الطاولة محجوزة',
-    table_occupee:      'هذه الطاولة مشغولة حالياً من طرف زبون آخر.',
-    verification:       'فحص تلقائي كل 10 ثوانٍ…',
-    dh:                 'درهم',
-    selectionner:       'الرجاء اختيار منتج واحد على الأقل',
-    erreur:             'خطأ : ',
-    popup_titre:        'هل تحتاج مساعدة ؟',
-    popup_sous:         'اختر ما تحتاجه،\nالنادل سيصل بسرعة.',
-    opt_serveur_titre:  'استدعاء النادل',
-    opt_serveur_desc:   'النادل يأتي إلى طاولتك',
-    opt_addition_titre: 'طلب الحساب',
-    opt_addition_desc:  'التحضير للدفع',
-    opt_eau_titre:      'طلب الماء',
-    opt_eau_desc:       'إبريق أو زجاجة',
-    popup_fermer:       'إلغاء',
-    toast_serveur:      '✅ النادل في الطريق !',
-    toast_addition:     '💳 الحساب في الطريق !',
-    toast_eau:          '💧 الماء في الطريق !',
-    toast_erreur:       '❌ خطأ، حاول مجدداً',
-    langue_btn:         '🇫🇷 FR',
-  }
-};
-
-// ════════════════════════════════════════════════════════════
-//  VARIABLES
-// ════════════════════════════════════════════════════════════
-let langue           = localStorage.getItem('gercafe_langue') || 'fr';
-let numeroTable      = 0;
-let nbPersonnes      = 1;
-let produits         = {};
-let panier           = {};
-let commandeRef      = null;
-let ecouteurCommande = null;
-let sessionId        = null;
-
-const t = (key, ...args) => {
-  const val = TRAD[langue][key];
-  return typeof val === 'function' ? val(...args) : (val ?? TRAD['fr'][key] ?? key);
-};
-
-// ════════════════════════════════════════════════════════════
-//  SESSION
-// ════════════════════════════════════════════════════════════
-function genererSessionId() {
-  let sid = sessionStorage.getItem('gercafe_session');
-  if (!sid) {
-    sid = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-    sessionStorage.setItem('gercafe_session', sid);
-  }
-  return sid;
-}
-
-// ════════════════════════════════════════════════════════════
-//  SYNC IDENTITÉ CAFÉ DEPUIS FIREBASE
-//  Admin modifie → page web se met à jour automatiquement
-// ════════════════════════════════════════════════════════════
-function ecouterIdentiteCafe() {
-  db.ref('config/cafe').on('value', (snap) => {
-    if (!snap.exists()) return;
-    const config = snap.val();
-
-    // Nom du café
-    if (config.nom) {
-      document.querySelectorAll('.nom-cafe, .nom-cafe-header').forEach(el => {
-        el.textContent = config.nom.toUpperCase();
-      });
-      document.title = config.nom + ' — Commander';
+    .popup-sheet {
+      background: #fff;
+      border-radius: 28px 28px 0 0;
+      padding: 8px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+      animation: slideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
     }
 
-    // Logo
-    if (config.logoUrl) {
-      document.querySelectorAll('.logo-cercle, .logo-grand-cafe').forEach(el => {
-        el.innerHTML = `<img src="${config.logoUrl}" 
-          style="width:100%;height:100%;object-fit:cover;border-radius:50%;" 
-          alt="logo">`;
-      });
+    .popup-handle {
+      width: 40px; height: 4px;
+      background: #F0DDB8;
+      border-radius: 2px;
+      margin: 12px auto 20px;
     }
 
-    // Langue depuis Firebase (admin a priorité)
-    if (config.langue && config.langue !== langue) {
-      langue = config.langue;
-      localStorage.setItem('gercafe_langue', langue);
-      appliquerLangue();
+    .popup-icone-grande {
+      font-size: 4rem;
+      text-align: center;
+      display: block;
+      margin-bottom: 8px;
+      filter: drop-shadow(0 4px 10px rgba(212,82,10,0.3));
     }
-  });
-}
 
-// ════════════════════════════════════════════════════════════
-//  APPLIQUER LA LANGUE
-// ════════════════════════════════════════════════════════════
-function appliquerLangue() {
-  const isAr = langue === 'ar';
-  document.documentElement.dir  = isAr ? 'rtl' : 'ltr';
-  document.documentElement.lang = isAr ? 'ar'  : 'fr';
-  document.body.style.fontFamily = isAr
-    ? "'Noto Naskh Arabic', 'Segoe UI', sans-serif"
-    : "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-
-  const el = document.getElementById('btn-langue');
-  if (el) el.textContent = t('langue_btn');
-
-  const map = {
-    'txt-chargement':      'chargement',
-    'txt-menu-btn':        'menu',
-    'txt-commander-btn':   'commander',
-    'txt-appel-btn':       'appeler_serveur',
-    'titre-menu':          'notre_menu',
-    'titre-personnes':     'nb_personnes',
-    'btn-suivant':         'suivant',
-    'titre-commande':      'votre_commande',
-    'titre-recap':         'recapitulatif',
-    'btn-confirmer':       'confirmer',
-    'txt-reference':       'reference',
-    'txt-attente-sous':    'attente_sous',
-    'txt-bonne-deg':       'bonne_degustation',
-    'txt-servie-sous':     'commande_servie',
-    'btn-payer':           'payer',
-    'btn-nouvelle-cmd':    'nouvelle_cmd',
-    'txt-paiement':        'paiement_cours',
-    'txt-paiement-sous':   'paiement_sous',
-    'txt-merci':           'merci',
-    'txt-abientot':        'a_bientot',
-    'btn-session':         'nouvelle_session',
-    'txt-reserve-titre':   'table_reservee',
-    'txt-table-label':     'table_label',
-    'txt-reserve-texte':   'table_occupee',
-    'txt-reserve-verif':   'verification',
-    'popup-titre':         'popup_titre',
-    'popup-sous':          'popup_sous',
-    'opt-serveur-titre':   'opt_serveur_titre',
-    'opt-serveur-desc':    'opt_serveur_desc',
-    'opt-addition-titre':  'opt_addition_titre',
-    'opt-addition-desc':   'opt_addition_desc',
-    'opt-eau-titre':       'opt_eau_titre',
-    'opt-eau-desc':        'opt_eau_desc',
-    'popup-btn-fermer':    'popup_fermer',
-  };
-
-  Object.entries(map).forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = t(key);
-  });
-
-  document.querySelectorAll('.btn-retour').forEach(el => {
-    el.textContent = t('retour');
-  });
-  document.querySelectorAll('.label-total').forEach(el => {
-    el.textContent = t('total');
-  });
-  document.querySelectorAll('.txt-appel-inline').forEach(el => {
-    el.textContent = t('appeler_serveur');
-  });
-
-  if (numeroTable > 0) {
-    const bv = document.getElementById('bienvenue-table');
-    if (bv) bv.textContent = t('bienvenue', numeroTable);
-    const it = document.getElementById('info-table-commande');
-    if (it) it.textContent = `${t('table_label')} ${numeroTable}`;
-    const ir = document.getElementById('info-table-recap');
-    if (ir) ir.textContent = `${t('table_label')} ${numeroTable}`;
-    const ta = document.getElementById('table-affichee');
-    if (ta) ta.textContent = `${t('table_label')} ${numeroTable}`;
-  }
-
-  if (Object.keys(produits).length > 0) {
-    construireMenu();
-    construireListeCommande();
-  }
-}
-
-function changerLangue() {
-  langue = langue === 'fr' ? 'ar' : 'fr';
-  localStorage.setItem('gercafe_langue', langue);
-  localStorage.setItem('gercafe_langue_force', '1'); // L'utilisateur a choisi manuellement
-  appliquerLangue();
-}
-
-// ════════════════════════════════════════════════════════════
-//  POPUP APPEL SERVEUR
-// ════════════════════════════════════════════════════════════
-function ouvrirPopupAppel() {
-  // Débloquer le contexte audio au premier geste utilisateur
-  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  document.getElementById('popup-appel').classList.add('ouvert');
-}
-
-function fermerPopupAppel(event) {
-  if (!event || event.target === document.getElementById('popup-appel')) {
-    document.getElementById('popup-appel').classList.remove('ouvert');
-  }
-}
-
-function envoyerAppel(type) {
-  document.getElementById('popup-appel').classList.remove('ouvert');
-
-  const updates = { appel_serveur: true };
-  let toastMsg  = '';
-  let sonType   = 'appel';
-
-  if (type === 'serveur') {
-    updates.statut     = 'appel_serveur';
-    updates.type_appel = 'serveur';
-    toastMsg = t('toast_serveur');
-    sonType  = 'appel';
-  } else if (type === 'addition') {
-    updates.statut           = 'demande_paiement';
-    updates.type_appel       = 'addition';
-    updates.demande_paiement = true;
-    toastMsg = t('toast_addition');
-    sonType  = 'paiement';
-    if (commandeRef) {
-      db.ref(`commandes/${commandeRef}`).update({
-        statut: 'demande_paiement', demande_paiement: true,
-      });
+    .popup-titre {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: #3B1F0D;
+      text-align: center;
+      margin-bottom: 6px;
     }
-  } else if (type === 'eau') {
-    updates.statut     = 'appel_serveur';
-    updates.type_appel = 'eau';
-    toastMsg = t('toast_eau');
-    sonType  = 'appel';
-  }
 
-  // Jouer la sonnerie AVANT l'écriture Firebase
-  jouerSonnerie(sonType);
-
-  db.ref(`tables/${numeroTable}`)
-    .update(updates)
-    .then(() => afficherToast(toastMsg, '#2E7D4F'))
-    .catch(() => afficherToast(t('toast_erreur'), '#C0392B'));
-}
-
-// ════════════════════════════════════════════════════════════
-//  TOAST
-// ════════════════════════════════════════════════════════════
-function afficherToast(message, couleur = '#2E7D4F') {
-  const toast = document.getElementById('toast');
-  toast.textContent      = message;
-  toast.style.background = couleur;
-  toast.style.display    = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 3000);
-}
-
-// ════════════════════════════════════════════════════════════
-//  DÉMARRAGE
-// ════════════════════════════════════════════════════════════
-window.onload = function () {
-  const urlParams = new URLSearchParams(window.location.search);
-  numeroTable = parseInt(urlParams.get('table')) || 0;
-  sessionId   = genererSessionId();
-
-  appliquerLangue();
-  ecouterIdentiteCafe(); // ← sync logo/nom/langue depuis Firebase
-
-  if (numeroTable === 0) {
-    document.getElementById('bienvenue-table').textContent =
-      langue === 'ar' ? 'قم بمسح رمز QR الخاص بطاولتك'
-                      : 'Scannez le QR code de votre table';
-    afficherEcran('ecran-accueil');
-    return;
-  }
-
-  verifierSessionTable();
-};
-
-// ════════════════════════════════════════════════════════════
-//  SESSION TABLE
-// ════════════════════════════════════════════════════════════
-function verifierSessionTable() {
-  afficherEcran('ecran-chargement');
-  db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
-    const s = snap.val();
-    (!s || s === sessionId) ? prendreTable() : afficherEcranReserve();
-  });
-}
-
-function prendreTable() {
-  db.ref(`tables/${numeroTable}/session_web`).set(sessionId)
-    .then(() => {
-      db.ref(`tables/${numeroTable}/session_web`).onDisconnect().remove();
-      chargerProduits();
-    })
-    .catch(() => chargerProduits());
-}
-
-function afficherEcranReserve() {
-  document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
-  const ecran = document.getElementById('ecran-reserve');
-  if (ecran) {
-    ecran.classList.add('actif');
-    document.getElementById('reserve-table-num').textContent = numeroTable;
-  }
-  setTimeout(() => {
-    db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
-      const s = snap.val();
-      (!s || s === sessionId) ? prendreTable() : afficherEcranReserve();
-    });
-  }, 10000);
-}
-
-function libererTable() {
-  if (!numeroTable || !sessionId) return;
-  db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
-    if (snap.val() === sessionId)
-      db.ref(`tables/${numeroTable}/session_web`).remove();
-  });
-}
-
-window.addEventListener('beforeunload', libererTable);
-
-// ════════════════════════════════════════════════════════════
-//  CHARGER PRODUITS (depuis Firebase — sync avec ProduitsScreen)
-// ════════════════════════════════════════════════════════════
-function chargerProduits() {
-  db.ref('produits').once('value', (snap) => {
-    produits = {};
-    if (snap.exists()) {
-      snap.forEach(child => {
-        const p = child.val();
-        // Afficher seulement les produits disponibles
-        if (p.disponible !== false) {
-          produits[child.key] = p;
-        }
-      });
+    .popup-sous {
+      font-size: 0.9rem;
+      color: #9C5C38;
+      text-align: center;
+      margin-bottom: 24px;
+      line-height: 1.5;
     }
-    appliquerLangue();
-    afficherEcran('ecran-accueil');
-    construireMenu();
-    construireListeCommande();
-  });
-}
 
-function nomProduit(p) {
-  return langue === 'ar' ? (p.nom_ar || p.nom) : p.nom;
-}
+    .popup-options {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
 
-function construireMenu() {
-  const container = document.getElementById('liste-menu');
-  if (!container) return;
-  container.innerHTML = '';
-  const cats = {};
-  Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar'
-      ? (p.categorie_ar || p.categorie || 'أخرى')
-      : (p.categorie || 'Autre');
-    if (!cats[cat]) cats[cat] = [];
-    cats[cat].push({ id, ...p });
-  });
-  Object.entries(cats).forEach(([cat, items]) => {
-    const h = document.createElement('div');
-    h.className = 'categorie-titre';
-    h.textContent = cat;
-    container.appendChild(h);
-    items.forEach(item => {
-      const el = document.createElement('div');
-      el.className = 'produit-item';
-      el.innerHTML = `
-        <span class="produit-icone">${item.icone || '☕'}</span>
-        <div class="produit-info">
-          <div class="produit-nom">${nomProduit(item)}</div>
-          <div class="produit-prix">${parseFloat(item.prix||0).toFixed(2)} ${t('dh')}</div>
-        </div>`;
-      container.appendChild(el);
-    });
-  });
-}
+    .popup-option {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: #FAF3E8;
+      border: 1.5px solid #F0DDB8;
+      border-radius: 14px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: all 0.15s;
+      width: 100%;
+      text-align: left;
+    }
+    .popup-option:active { transform: scale(0.98); background: #F0DDB8; }
+    [dir="rtl"] .popup-option { text-align: right; flex-direction: row-reverse; }
 
-function construireListeCommande() {
-  const container = document.getElementById('liste-commande');
-  if (!container) return;
-  container.innerHTML = '';
-  panier = {};
-  const cats = {};
-  Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar'
-      ? (p.categorie_ar || p.categorie || 'أخرى')
-      : (p.categorie || 'Autre');
-    if (!cats[cat]) cats[cat] = [];
-    cats[cat].push({ id, ...p });
-  });
-  Object.entries(cats).forEach(([cat, items]) => {
-    const h = document.createElement('div');
-    h.className = 'categorie-titre';
-    h.textContent = cat;
-    container.appendChild(h);
-    items.forEach(item => {
-      panier[item.id] = 0;
-      const el = document.createElement('div');
-      el.className = 'produit-item';
-      el.id = `item-${item.id}`;
-      el.innerHTML = `
-        <span class="produit-icone">${item.icone || '☕'}</span>
-        <div class="produit-info">
-          <div class="produit-nom">${nomProduit(item)}</div>
-          <div class="produit-prix">${parseFloat(item.prix||0).toFixed(2)} ${t('dh')}</div>
+    .popup-option-icone {
+      font-size: 1.8rem;
+      flex-shrink: 0;
+    }
+
+    .popup-option-texte { flex: 1; }
+
+    .popup-option-titre {
+      font-weight: 700;
+      color: #3B1F0D;
+      font-size: 1rem;
+      display: block;
+    }
+
+    .popup-option-desc {
+      font-size: 0.8rem;
+      color: #9C5C38;
+      display: block;
+      margin-top: 2px;
+    }
+
+    .popup-option-fleche {
+      color: #C8853A;
+      font-size: 1.1rem;
+    }
+    [dir="rtl"] .popup-option-fleche { transform: scaleX(-1); }
+
+    .popup-btn-fermer {
+      width: 100%;
+      padding: 14px;
+      border: 1.5px solid #F0DDB8;
+      border-radius: 12px;
+      background: transparent;
+      color: #9C5C38;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .popup-btn-fermer:active { background: #FAF3E8; }
+
+    /* ══ TOAST NOTIFICATION ══ */
+    .toast {
+      display: none;
+      position: fixed;
+      bottom: 90px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2E7D4F;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      z-index: 2000;
+      box-shadow: 0 4px 16px rgba(46,125,79,0.4);
+      white-space: nowrap;
+      animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp {
+      from { opacity:0; transform: translateX(-50%) translateY(10px); }
+      to   { opacity:1; transform: translateX(-50%) translateY(0); }
+    }
+
+    /* Bouton langue fixe */
+    .btn-langue-fixe {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 9999;
+      background: linear-gradient(135deg, #6B3A2A, #1C0A00);
+      color: #F0DDB8;
+      border: none;
+      border-radius: 50px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 3px 12px rgba(28,10,0,0.3);
+      transition: transform 0.15s;
+    }
+    .btn-langue-fixe:active { transform: scale(0.95); }
+    [dir="rtl"] .btn-langue-fixe { left: auto; right: 14px; }
+  </style>
+</head>
+<body>
+
+  <!-- ══ BOUTON LANGUE ══ -->
+  <button id="btn-langue" class="btn-langue-fixe" onclick="changerLangue()">🇲🇦 ع</button>
+
+  <!-- ══ TOAST ══ -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ══════════════════════════════════
+       POPUP APPEL SERVEUR
+  ══════════════════════════════════ -->
+  <div id="popup-appel" class="popup-overlay" onclick="fermerPopupAppel(event)">
+    <div class="popup-sheet">
+      <div class="popup-handle"></div>
+      <span class="popup-icone-grande">🔔</span>
+      <div id="popup-titre" class="popup-titre">Besoin d'aide ?</div>
+      <div id="popup-sous" class="popup-sous">Choisissez ce dont vous avez besoin.<br>Le serveur arrive rapidement.</div>
+
+      <div class="popup-options">
+        <button class="popup-option" onclick="envoyerAppel('serveur')">
+          <span class="popup-option-icone">🧑‍🍳</span>
+          <span class="popup-option-texte">
+            <span id="opt-serveur-titre" class="popup-option-titre">Appeler le serveur</span>
+            <span id="opt-serveur-desc"  class="popup-option-desc">Le serveur vient à votre table</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+
+        <button class="popup-option" onclick="envoyerAppel('addition')">
+          <span class="popup-option-icone">💳</span>
+          <span class="popup-option-texte">
+            <span id="opt-addition-titre" class="popup-option-titre">Demander l'addition</span>
+            <span id="opt-addition-desc"  class="popup-option-desc">Préparer le paiement</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+
+        <button class="popup-option" onclick="envoyerAppel('eau')">
+          <span class="popup-option-icone">💧</span>
+          <span class="popup-option-texte">
+            <span id="opt-eau-titre" class="popup-option-titre">Demander de l'eau</span>
+            <span id="opt-eau-desc"  class="popup-option-desc">Carafe ou bouteille</span>
+          </span>
+          <span class="popup-option-fleche">›</span>
+        </button>
+      </div>
+
+      <button id="popup-btn-fermer" class="popup-btn-fermer" onclick="fermerPopupAppel()">Annuler</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN CHARGEMENT ══ -->
+  <div id="ecran-chargement" class="ecran actif">
+    <div class="logo-grand">☕</div>
+    <h1 class="nom-cafe">GerCafe</h1>
+    <div class="spinner"></div>
+    <p id="txt-chargement" class="chargement-texte">Chargement du menu…</p>
+  </div>
+
+  <!-- ══ ÉCRAN ACCUEIL ══ -->
+  <div id="ecran-accueil" class="ecran">
+    <div class="header-cafe">
+      <div class="logo-cercle">☕</div>
+      <h1 class="nom-cafe-header">GerCafe</h1>
+      <p id="bienvenue-table" class="bienvenue-txt">Bienvenue !</p>
+    </div>
+    <div class="boutons-accueil">
+      <button class="btn-carre" onclick="afficherEcran('ecran-menu')">
+        <span class="btn-icone">🍽️</span>
+        <span id="txt-menu-btn" class="btn-label">MENU</span>
+      </button>
+      <button class="btn-carre btn-carre-principal" onclick="afficherEcran('ecran-personnes')">
+        <span class="btn-icone">📋</span>
+        <span id="txt-commander-btn" class="btn-label">COMMANDER</span>
+      </button>
+    </div>
+    <button class="btn-appel" onclick="ouvrirPopupAppel()">
+      🔔 <span id="txt-appel-btn">APPELER LE SERVEUR</span>
+    </button>
+  </div>
+
+  <!-- ══ ÉCRAN MENU ══ -->
+  <div id="ecran-menu" class="ecran">
+    <div class="top-bar">
+      <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
+      <h2 id="titre-menu">Notre Menu</h2>
+    </div>
+    <div id="liste-menu" class="liste-produits"></div>
+  </div>
+
+  <!-- ══ ÉCRAN PERSONNES ══ -->
+  <div id="ecran-personnes" class="ecran">
+    <div class="top-bar">
+      <button class="btn-retour" onclick="afficherEcran('ecran-accueil')">← Retour</button>
+      <h2 id="titre-personnes">Combien de personnes ?</h2>
+    </div>
+    <div class="centre">
+      <div class="personnes-icones" id="icones-personnes">👤</div>
+      <div class="compteur">
+        <button class="btn-compteur" onclick="modifierPersonnes(-1)">−</button>
+        <span id="nb-personnes">1</span>
+        <button class="btn-compteur" onclick="modifierPersonnes(1)">+</button>
+      </div>
+      <button id="btn-suivant" class="btn-principal" onclick="afficherEcran('ecran-commande')">Suivant →</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN COMMANDE ══ -->
+  <div id="ecran-commande" class="ecran">
+    <div class="top-bar">
+      <button class="btn-retour" onclick="afficherEcran('ecran-personnes')">← Retour</button>
+      <h2 id="titre-commande">Votre commande</h2>
+    </div>
+    <p id="info-table-commande" class="info-table"></p>
+    <div id="liste-commande" class="liste-produits"></div>
+    <div class="footer-commande">
+      <div class="total-ligne">
+        <span class="label-total">Total :</span>
+        <span class="valeur-total">0.00 Dh</span>
+      </div>
+      <button class="btn-principal" onclick="afficherRecap()">Récapitulatif →</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN RÉCAP ══ -->
+  <div id="ecran-recap" class="ecran">
+    <div class="top-bar">
+      <button class="btn-retour" onclick="afficherEcran('ecran-commande')">← Retour</button>
+      <h2 id="titre-recap">Récapitulatif</h2>
+    </div>
+    <p id="info-table-recap" class="info-table"></p>
+    <div id="liste-recap" class="liste-recap"></div>
+    <div class="footer-commande">
+      <div class="total-ligne">
+        <span class="label-total">Total :</span>
+        <span class="valeur-total">0.00 Dh</span>
+      </div>
+      <button id="btn-confirmer" class="btn-confirmer" onclick="confirmerCommande()">✅ CONFIRMER</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN ATTENTE ══ -->
+  <div id="ecran-attente" class="ecran">
+    <div class="centre">
+      <div class="logo-grand">☕</div>
+      <h2 id="txt-en-preparation">Votre commande est<br>en préparation…</h2>
+      <div class="spinner"></div>
+      <div class="ref-commande">
+        <p id="txt-reference">Référence</p>
+        <h3 id="ref-affichee">------</h3>
+      </div>
+      <p id="table-affichee" class="info-table"></p>
+      <p id="txt-attente-sous" class="attente-sous">Le serveur s'occupe de vous très bientôt ☕</p>
+      <!-- Bouton appel depuis attente -->
+      <button class="btn-appel" style="margin-top:16px;width:100%;max-width:340px"
+              onclick="ouvrirPopupAppel()">
+        🔔 <span class="txt-appel-inline">APPELER LE SERVEUR</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN SERVIE ══ -->
+  <div id="ecran-servie" class="ecran">
+    <div class="centre">
+      <div class="logo-grand">✅</div>
+      <h2 id="txt-bonne-deg">Bonne dégustation !</h2>
+      <p id="txt-servie-sous" class="sous-titre">Votre commande a été servie.</p>
+      <div class="boutons-fin">
+        <button id="btn-payer" class="btn-payer" onclick="demanderPaiement()">💳 PAYER</button>
+        <button id="btn-nouvelle-cmd" class="btn-secondaire" onclick="nouvelleCommande()">📋 Nouvelle commande</button>
+        <button class="btn-appel" onclick="ouvrirPopupAppel()">
+          🔔 <span class="txt-appel-inline">APPELER LE SERVEUR</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN PAIEMENT ══ -->
+  <div id="ecran-paiement" class="ecran">
+    <div class="centre">
+      <div class="logo-grand">💳</div>
+      <h2 id="txt-paiement">Paiement en cours…</h2>
+      <p id="txt-paiement-sous" class="sous-titre">Le serveur va confirmer votre paiement.</p>
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN MERCI ══ -->
+  <div id="ecran-merci" class="ecran">
+    <div class="centre">
+      <div class="logo-grand">🙏</div>
+      <h2 id="txt-merci">Merci pour votre visite !</h2>
+      <p id="txt-abientot" class="sous-titre">À bientôt au GerCafe.</p>
+      <button id="btn-session" class="btn-principal" onclick="recommencer()">Nouvelle session</button>
+    </div>
+  </div>
+
+  <!-- ══ ÉCRAN TABLE RÉSERVÉE ══ -->
+  <div id="ecran-reserve" class="ecran">
+    <div class="centre">
+      <div class="reserve-icone">🔒</div>
+      <h2 id="txt-reserve-titre" class="reserve-titre">Table réservée</h2>
+      <div class="reserve-badge">
+        <span id="txt-table-label">Table</span> <span id="reserve-table-num">?</span>
+      </div>
+      <p id="txt-reserve-texte" class="reserve-texte">
+        Cette table est actuellement occupée par un autre client.
+      </p>
+      <div class="reserve-attente">
+        <div class="spinner"></div>
+        <p id="txt-reserve-verif">Vérification automatique toutes les 10 secondes…</p>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       POPUP OPTIONS BOISSON
+  ══════════════════════════════════ -->
+  <div id="popup-options-boisson" class="popup-overlay" onclick="if(event.target===this)this.classList.remove('ouvert')">
+    <div class="popup-sheet">
+      <div class="popup-handle"></div>
+      <div class="opt-boisson-titre">☕ <span id="opt-boisson-nom">Café</span></div>
+      <p class="opt-boisson-sous" id="opt-sous-titre">Personnalisez votre boisson</p>
+
+      <!-- SUCRE -->
+      <div class="opt-section-titre">🍬 Sucre</div>
+      <div class="opt-groupe">
+        <button id="opt-sans-sucre" class="opt-btn">
+          <span class="opt-btn-icone">🚫</span>
+          <span id="opt-lbl-sans-sucre">Sans sucre</span>
+        </button>
+        <button id="opt-avec-sucre" class="opt-btn">
+          <span class="opt-btn-icone">🧊</span>
+          <span id="opt-lbl-avec-sucre">Avec sucre</span>
+        </button>
+        <button id="opt-saccharine" class="opt-btn">
+          <span class="opt-btn-icone">💊</span>
+          <span id="opt-lbl-saccharine">Saccharine</span>
+        </button>
+      </div>
+
+      <!-- QUANTITÉ CUBES -->
+      <div id="zone-qte-sucre" class="opt-zone" style="display:none">
+        <div class="opt-section-titre">Quantité de sucre</div>
+        <div class="opt-groupe">
+          <button id="opt-cube-0_5" class="opt-btn opt-btn-sm">½ cube</button>
+          <button id="opt-cube-1"   class="opt-btn opt-btn-sm">1 cube</button>
+          <button id="opt-cube-2"   class="opt-btn opt-btn-sm">2 cubes</button>
+          <button id="opt-cube-3"   class="opt-btn opt-btn-sm">3 cubes</button>
         </div>
-        <div class="produit-compteur">
-          <button class="btn-compteur" onclick="modifierQte('${item.id}',-1)">−</button>
-          <span class="qte-affichage" id="qte-${item.id}">0</span>
-          <button class="btn-compteur" onclick="modifierQte('${item.id}',1)">+</button>
-        </div>`;
-      container.appendChild(el);
-    });
-  });
-}
+      </div>
 
-// ════════════════════════════════════════════════════════════
-//  PANIER
-// ════════════════════════════════════════════════════════════
-function modifierQte(id, delta) {
-  const ancienneQte = panier[id] || 0;
-  const nouvelleQte = Math.max(0, ancienneQte + delta);
-
-  // Si on ajoute (+1) une boisson → ouvrir popup options
-  if (delta > 0 && nouvelleQte > ancienneQte) {
-    const p = produits[id];
-    if (p && estCategorieBoisson(p.categorie)) {
-      ouvrirPopupOptions(id, p);
-      return; // Attendre confirmation du popup
-    }
-  }
-
-  panier[id] = nouvelleQte;
-  if (nouvelleQte === 0) delete optionsPanier[id];
-  const q = document.getElementById(`qte-${id}`);
-  const c = document.getElementById(`item-${id}`);
-  if (q) q.textContent = nouvelleQte;
-  if (c) c.classList.toggle('selectionne', nouvelleQte > 0);
-  mettreAJourTotal();
-}
-
-// ════════════════════════════════════════════════════════════
-//  POPUP OPTIONS BOISSON
-// ════════════════════════════════════════════════════════════
-function ouvrirPopupOptions(produitId, produit) {
-  const isAr = langue === 'ar';
-  const popup = document.getElementById('popup-options-boisson');
-  
-  // Titre
-  document.getElementById('opt-boisson-nom').textContent = 
-    nomProduit(produit);
-
-  // Reset état
-  let choix = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
-
-  function rendreBtns() {
-    // Sucre
-    ['sans-sucre', 'avec-sucre', 'saccharine'].forEach(id => {
-      document.getElementById('opt-' + id)?.classList.remove('actif');
-    });
-    if (choix.sucre === 'non')        document.getElementById('opt-sans-sucre')?.classList.add('actif');
-    if (choix.sucre === 'oui')        document.getElementById('opt-avec-sucre')?.classList.add('actif');
-    if (choix.saccharine)             document.getElementById('opt-saccharine')?.classList.add('actif');
-
-    // Quantité cubes
-    const zoneQte = document.getElementById('zone-qte-sucre');
-    if (zoneQte) zoneQte.style.display = choix.sucre === 'oui' ? 'flex' : 'none';
-    ['0.5','1','2','3'].forEach(v => {
-      document.getElementById('opt-cube-' + v.replace('.', '_'))?.classList.remove('actif');
-    });
-    if (choix.qteSucre) {
-      document.getElementById('opt-cube-' + choix.qteSucre.replace('.', '_'))?.classList.add('actif');
-    }
-
-    // Sirop
-    const zoneSirop = document.getElementById('zone-sirop');
-    if (zoneSirop) zoneSirop.style.display = choix.sucre === 'oui' ? 'flex' : 'none';
-    ['sans-sirop','grenadine','menthe'].forEach(s => {
-      document.getElementById('opt-sirop-' + s)?.classList.remove('actif');
-    });
-    if (choix.sirop === 'non')         document.getElementById('opt-sirop-sans-sirop')?.classList.add('actif');
-    if (choix.typeSirop === 'grenadine') document.getElementById('opt-sirop-grenadine')?.classList.add('actif');
-    if (choix.typeSirop === 'menthe')   document.getElementById('opt-sirop-menthe')?.classList.add('actif');
-  }
-
-  // Handlers boutons sucre
-  document.getElementById('opt-sans-sucre').onclick = () => {
-    choix = { ...choix, sucre: 'non', qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
-    rendreBtns();
-  };
-  document.getElementById('opt-avec-sucre').onclick = () => {
-    choix = { ...choix, sucre: 'oui', saccharine: false };
-    if (!choix.qteSucre) choix.qteSucre = '1';
-    if (!choix.sirop)   choix.sirop    = 'non';
-    rendreBtns();
-  };
-  document.getElementById('opt-saccharine').onclick = () => {
-    choix = { sucre: 'saccharine', qteSucre: null, sirop: null, typeSirop: null, saccharine: true };
-    rendreBtns();
-  };
-
-  // Quantité cubes
-  ['0.5','1','2','3'].forEach(v => {
-    const btn = document.getElementById('opt-cube-' + v.replace('.', '_'));
-    if (btn) btn.onclick = () => { choix.qteSucre = v; rendreBtns(); };
-  });
-
-  // Sirop
-  document.getElementById('opt-sirop-sans-sirop').onclick = () => {
-    choix.sirop = 'non'; choix.typeSirop = null; rendreBtns();
-  };
-  document.getElementById('opt-sirop-grenadine').onclick = () => {
-    choix.sirop = 'oui'; choix.typeSirop = 'grenadine'; rendreBtns();
-  };
-  document.getElementById('opt-sirop-menthe').onclick = () => {
-    choix.sirop = 'oui'; choix.typeSirop = 'menthe'; rendreBtns();
-  };
-
-  // Bouton confirmer
-  document.getElementById('opt-boisson-confirmer').onclick = () => {
-    optionsPanier[produitId] = choix;
-    panier[produitId] = (panier[produitId] || 0) + 1;
-    const q = document.getElementById(`qte-${produitId}`);
-    const c = document.getElementById(`item-${produitId}`);
-    if (q) q.textContent = panier[produitId];
-    if (c) c.classList.add('selectionne');
-    mettreAJourTotal();
-    popup.classList.remove('ouvert');
-    afficherBadgeOptions(produitId, choix);
-  };
-
-  // Bouton annuler
-  document.getElementById('opt-boisson-annuler').onclick = () => {
-    popup.classList.remove('ouvert');
-  };
-
-  rendreBtns();
-  popup.classList.add('ouvert');
-}
-
-function afficherBadgeOptions(id, choix) {
-  const card = document.getElementById(`item-${id}`);
-  if (!card) return;
-  let badge = card.querySelector('.badge-options');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.className = 'badge-options';
-    card.querySelector('.produit-info').appendChild(badge);
-  }
-  const parts = [];
-  if (choix.sucre === 'non')       parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
-  if (choix.sucre === 'oui')       parts.push(`${choix.qteSucre} sucre${choix.qteSucre > 1 ? 's' : ''}`);
-  if (choix.saccharine)            parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
-  if (choix.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'شراب رمان' : 'Grenadine');
-  if (choix.typeSirop === 'menthe')   parts.push(langue === 'ar' ? 'شراب نعنع' : 'Menthe');
-  badge.textContent = parts.join(' · ');
-}
-
-
-function mettreAJourTotal() {
-  let total = 0;
-  Object.entries(panier).forEach(([id, qte]) => {
-    if (qte > 0 && produits[id])
-      total += parseFloat(produits[id].prix||0) * qte;
-  });
-  document.querySelectorAll('.valeur-total').forEach(el => {
-    el.textContent = total.toFixed(2) + ' ' + t('dh');
-  });
-  return total;
-}
-
-function modifierPersonnes(delta) {
-  nbPersonnes = Math.max(1, Math.min(20, nbPersonnes + delta));
-  document.getElementById('nb-personnes').textContent = nbPersonnes;
-  let ic = '';
-  for (let i = 0; i < Math.min(nbPersonnes,10); i++) ic += '👤';
-  if (nbPersonnes > 10) ic += ` +${nbPersonnes-10}`;
-  document.getElementById('icones-personnes').textContent = ic;
-}
-
-// ════════════════════════════════════════════════════════════
-//  RÉCAP
-// ════════════════════════════════════════════════════════════
-function afficherRecap() {
-  const hasItems = Object.values(panier).some(q => q > 0);
-  if (!hasItems) { afficherToast(t('selectionner'), '#C0392B'); return; }
-  const container = document.getElementById('liste-recap');
-  container.innerHTML = '';
-  let total = 0;
-  Object.entries(panier).forEach(([id, qte]) => {
-    if (qte > 0 && produits[id]) {
-      const p   = produits[id];
-      const prix = parseFloat(p.prix||0);
-      const st  = prix * qte;
-      total += st;
-      const el = document.createElement('div');
-      el.className = 'recap-item';
-      el.innerHTML = `
-        <div>
-          <div class="recap-nom">${p.icone||'☕'} ${nomProduit(p)}</div>
-          ${optionsPanier[id] ? `<div class="recap-options">${resumerOptions(optionsPanier[id])}</div>` : ''}
-          <div class="recap-detail">x${qte} × ${prix.toFixed(2)} ${t('dh')}</div>
+      <!-- SIROP -->
+      <div id="zone-sirop" class="opt-zone" style="display:none">
+        <div class="opt-section-titre">🍹 Sirop</div>
+        <div class="opt-groupe">
+          <button id="opt-sirop-sans-sirop"  class="opt-btn">
+            <span class="opt-btn-icone">🚫</span>
+            <span id="opt-lbl-sans-sirop">Sans sirop</span>
+          </button>
+          <button id="opt-sirop-grenadine" class="opt-btn">
+            <span class="opt-btn-icone">🍓</span>
+            <span id="opt-lbl-grenadine">Grenadine</span>
+          </button>
+          <button id="opt-sirop-menthe" class="opt-btn">
+            <span class="opt-btn-icone">🌿</span>
+            <span id="opt-lbl-menthe">Menthe</span>
+          </button>
         </div>
-        <div class="recap-prix">${st.toFixed(2)} ${t('dh')}</div>`;
-      container.appendChild(el);
-    }
-  });
-  document.querySelectorAll('.valeur-total').forEach(el => {
-    el.textContent = total.toFixed(2) + ' ' + t('dh');
-  });
-  afficherEcran('ecran-recap');
-}
+      </div>
 
-// ════════════════════════════════════════════════════════════
-//  CONFIRMER COMMANDE
-// ════════════════════════════════════════════════════════════
-function confirmerCommande() {
-  commandeRef = Math.floor(100000 + Math.random()*900000).toString();
-  let total = 0;
-  const pc  = {};
-  Object.entries(panier).forEach(([id, qte]) => {
-    if (qte > 0 && produits[id]) {
-      const p   = produits[id];
-      const prix = parseFloat(p.prix||0);
-      total += prix * qte;
-      const opts = optionsPanier[id] || null;
-      pc[id] = { nom: p.nom, qte, prix, ...(opts ? { options: opts } : {}) };
-    }
-  });
-  const now   = new Date();
-  const heure = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
-  const date  = now.toLocaleDateString('fr-FR');
+      <div class="opt-actions">
+        <button id="opt-boisson-annuler" class="popup-btn-fermer" id="opt-lbl-annuler">Annuler</button>
+        <button id="opt-boisson-confirmer" class="btn-confirmer" style="flex:1">
+          <span id="opt-lbl-confirmer">Ajouter ✓</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
-  db.ref(`commandes/${commandeRef}`)
-    .set({ ref:commandeRef, table:numeroTable, nb_personnes:nbPersonnes,
-           produits:pc, total:parseFloat(total.toFixed(2)),
-           heure, date, statut:'en_attente', appel_serveur:false })
-    .then(() => db.ref(`tables/${numeroTable}/statut`).set('en_attente'))
-    .then(() => {
-      document.getElementById('ref-affichee').textContent = commandeRef;
-      afficherEcran('ecran-attente');
-      ecouterStatutCommande();
-    })
-    .catch(err => afficherToast(t('erreur') + err.message, '#C0392B'));
-}
-
-// ════════════════════════════════════════════════════════════
-//  ÉCOUTER STATUT + SONNERIE AUTO
-// ════════════════════════════════════════════════════════════
-function ecouterStatutCommande() {
-  if (ecouteurCommande)
-    db.ref(`commandes/${commandeRef}/statut`).off('value', ecouteurCommande);
-
-  ecouteurCommande = db.ref(`commandes/${commandeRef}/statut`)
-    .on('value', (snap) => {
-      const s = snap.val();
-      if (s === 'servie') {
-        jouerSonnerie('servie');  // 🔔 Sonnerie quand commande servie
-        afficherEcran('ecran-servie');
-      } else if (s === 'demande_paiement') {
-        afficherEcran('ecran-paiement');
-      } else if (s === 'payee') {
-        jouerSonnerie('paiement'); // 🔔 Sonnerie paiement confirmé
-        libererTable();
-        afficherEcran('ecran-merci');
-        setTimeout(recommencer, 5000);
-      }
-    });
-}
-
-function demanderPaiement() {
-  jouerSonnerie('paiement');
-  db.ref(`commandes/${commandeRef}`)
-    .update({ statut:'demande_paiement', demande_paiement:true })
-    .then(() => db.ref(`tables/${numeroTable}/statut`).set('demande_paiement'))
-    .then(() => afficherEcran('ecran-paiement'))
-    .catch(err => afficherToast(t('erreur') + err.message, '#C0392B'));
-}
-
-function nouvelleCommande() {
-  commandeRef = null; nbPersonnes = 1; panier = {};
-  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
-  document.getElementById('nb-personnes').textContent     = '1';
-  document.getElementById('icones-personnes').textContent = '👤';
-  construireListeCommande(); mettreAJourTotal();
-  afficherEcran('ecran-personnes');
-}
-
-function resumerOptions(opts) {
-  if (!opts) return '';
-  const parts = [];
-  if (opts.sucre === 'non')          parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
-  if (opts.sucre === 'oui')          parts.push(`${opts.qteSucre} cube${opts.qteSucre > 1 ? 's' : ''}`);
-  if (opts.saccharine)               parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
-  if (opts.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'Grenadine 🍹' : 'Grenadine 🍹');
-  if (opts.typeSirop === 'menthe')    parts.push(langue === 'ar' ? 'Menthe 🌿' : 'Menthe 🌿');
-  return parts.join(' · ');
-}
-
-function recommencer() {
-  commandeRef = null; nbPersonnes = 1; panier = {};
-  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
-  document.getElementById('nb-personnes').textContent     = '1';
-  document.getElementById('icones-personnes').textContent = '👤';
-  construireListeCommande(); mettreAJourTotal();
-  afficherEcran('ecran-accueil');
-}
-
-function afficherEcran(id) {
-  document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
-  const el = document.getElementById(id);
-  if (el) el.classList.add('actif');
-}
+  <script src="app.js"></script>
+</body>
+</html>
