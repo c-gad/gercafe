@@ -1,3 +1,19 @@
+
+// Catégories qui déclenchent le popup options boisson
+const CATS_BOISSONS = ['cafés', 'thés & infusions', 'thes & infusions', 
+  'café', 'thé', 'infusions', 'the', 'cafes', 'boissons chaudes',
+  'المشروبات الساخنة', 'قهوة', 'شاي'];
+
+function estCategorieBoisson(categorie) {
+  if (!categorie) return false;
+  const c = categorie.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
+  return CATS_BOISSONS.some(b => c.includes(b.toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a')));
+}
+
+
+// Options boisson par produit : { produitId: { sucre, qte_sucre, sirop, type_sirop, saccharine } }
+const optionsPanier = {};
+
 // ════════════════════════════════════════════════════════════
 //  FIREBASE CONFIG — REMPLACEZ PAR VOS VALEURS
 // ════════════════════════════════════════════════════════════
@@ -223,9 +239,10 @@ function ecouterIdentiteCafe() {
       });
     }
 
-    // Langue par défaut (si non forcée par l'utilisateur)
-    if (config.langue && !localStorage.getItem('gercafe_langue_force')) {
+    // Langue depuis Firebase (admin a priorité)
+    if (config.langue && config.langue !== langue) {
       langue = config.langue;
+      localStorage.setItem('gercafe_langue', langue);
       appliquerLangue();
     }
   });
@@ -553,13 +570,144 @@ function construireListeCommande() {
 //  PANIER
 // ════════════════════════════════════════════════════════════
 function modifierQte(id, delta) {
-  panier[id] = Math.max(0, (panier[id]||0) + delta);
+  const ancienneQte = panier[id] || 0;
+  const nouvelleQte = Math.max(0, ancienneQte + delta);
+
+  // Si on ajoute (+1) une boisson → ouvrir popup options
+  if (delta > 0 && nouvelleQte > ancienneQte) {
+    const p = produits[id];
+    if (p && estCategorieBoisson(p.categorie)) {
+      ouvrirPopupOptions(id, p);
+      return; // Attendre confirmation du popup
+    }
+  }
+
+  panier[id] = nouvelleQte;
+  if (nouvelleQte === 0) delete optionsPanier[id];
   const q = document.getElementById(`qte-${id}`);
   const c = document.getElementById(`item-${id}`);
-  if (q) q.textContent = panier[id];
-  if (c) c.classList.toggle('selectionne', panier[id] > 0);
+  if (q) q.textContent = nouvelleQte;
+  if (c) c.classList.toggle('selectionne', nouvelleQte > 0);
   mettreAJourTotal();
 }
+
+// ════════════════════════════════════════════════════════════
+//  POPUP OPTIONS BOISSON
+// ════════════════════════════════════════════════════════════
+function ouvrirPopupOptions(produitId, produit) {
+  const isAr = langue === 'ar';
+  const popup = document.getElementById('popup-options-boisson');
+  
+  // Titre
+  document.getElementById('opt-boisson-nom').textContent = 
+    nomProduit(produit);
+
+  // Reset état
+  let choix = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+
+  function rendreBtns() {
+    // Sucre
+    ['sans-sucre', 'avec-sucre', 'saccharine'].forEach(id => {
+      document.getElementById('opt-' + id)?.classList.remove('actif');
+    });
+    if (choix.sucre === 'non')        document.getElementById('opt-sans-sucre')?.classList.add('actif');
+    if (choix.sucre === 'oui')        document.getElementById('opt-avec-sucre')?.classList.add('actif');
+    if (choix.saccharine)             document.getElementById('opt-saccharine')?.classList.add('actif');
+
+    // Quantité cubes
+    const zoneQte = document.getElementById('zone-qte-sucre');
+    if (zoneQte) zoneQte.style.display = choix.sucre === 'oui' ? 'flex' : 'none';
+    ['0.5','1','2','3'].forEach(v => {
+      document.getElementById('opt-cube-' + v.replace('.', '_'))?.classList.remove('actif');
+    });
+    if (choix.qteSucre) {
+      document.getElementById('opt-cube-' + choix.qteSucre.replace('.', '_'))?.classList.add('actif');
+    }
+
+    // Sirop
+    const zoneSirop = document.getElementById('zone-sirop');
+    if (zoneSirop) zoneSirop.style.display = choix.sucre === 'oui' ? 'flex' : 'none';
+    ['sans-sirop','grenadine','menthe'].forEach(s => {
+      document.getElementById('opt-sirop-' + s)?.classList.remove('actif');
+    });
+    if (choix.sirop === 'non')         document.getElementById('opt-sirop-sans-sirop')?.classList.add('actif');
+    if (choix.typeSirop === 'grenadine') document.getElementById('opt-sirop-grenadine')?.classList.add('actif');
+    if (choix.typeSirop === 'menthe')   document.getElementById('opt-sirop-menthe')?.classList.add('actif');
+  }
+
+  // Handlers boutons sucre
+  document.getElementById('opt-sans-sucre').onclick = () => {
+    choix = { ...choix, sucre: 'non', qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+    rendreBtns();
+  };
+  document.getElementById('opt-avec-sucre').onclick = () => {
+    choix = { ...choix, sucre: 'oui', saccharine: false };
+    if (!choix.qteSucre) choix.qteSucre = '1';
+    if (!choix.sirop)   choix.sirop    = 'non';
+    rendreBtns();
+  };
+  document.getElementById('opt-saccharine').onclick = () => {
+    choix = { sucre: 'saccharine', qteSucre: null, sirop: null, typeSirop: null, saccharine: true };
+    rendreBtns();
+  };
+
+  // Quantité cubes
+  ['0.5','1','2','3'].forEach(v => {
+    const btn = document.getElementById('opt-cube-' + v.replace('.', '_'));
+    if (btn) btn.onclick = () => { choix.qteSucre = v; rendreBtns(); };
+  });
+
+  // Sirop
+  document.getElementById('opt-sirop-sans-sirop').onclick = () => {
+    choix.sirop = 'non'; choix.typeSirop = null; rendreBtns();
+  };
+  document.getElementById('opt-sirop-grenadine').onclick = () => {
+    choix.sirop = 'oui'; choix.typeSirop = 'grenadine'; rendreBtns();
+  };
+  document.getElementById('opt-sirop-menthe').onclick = () => {
+    choix.sirop = 'oui'; choix.typeSirop = 'menthe'; rendreBtns();
+  };
+
+  // Bouton confirmer
+  document.getElementById('opt-boisson-confirmer').onclick = () => {
+    optionsPanier[produitId] = choix;
+    panier[produitId] = (panier[produitId] || 0) + 1;
+    const q = document.getElementById(`qte-${produitId}`);
+    const c = document.getElementById(`item-${produitId}`);
+    if (q) q.textContent = panier[produitId];
+    if (c) c.classList.add('selectionne');
+    mettreAJourTotal();
+    popup.classList.remove('ouvert');
+    afficherBadgeOptions(produitId, choix);
+  };
+
+  // Bouton annuler
+  document.getElementById('opt-boisson-annuler').onclick = () => {
+    popup.classList.remove('ouvert');
+  };
+
+  rendreBtns();
+  popup.classList.add('ouvert');
+}
+
+function afficherBadgeOptions(id, choix) {
+  const card = document.getElementById(`item-${id}`);
+  if (!card) return;
+  let badge = card.querySelector('.badge-options');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'badge-options';
+    card.querySelector('.produit-info').appendChild(badge);
+  }
+  const parts = [];
+  if (choix.sucre === 'non')       parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
+  if (choix.sucre === 'oui')       parts.push(`${choix.qteSucre} sucre${choix.qteSucre > 1 ? 's' : ''}`);
+  if (choix.saccharine)            parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
+  if (choix.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'شراب رمان' : 'Grenadine');
+  if (choix.typeSirop === 'menthe')   parts.push(langue === 'ar' ? 'شراب نعنع' : 'Menthe');
+  badge.textContent = parts.join(' · ');
+}
+
 
 function mettreAJourTotal() {
   let total = 0;
@@ -602,6 +750,7 @@ function afficherRecap() {
       el.innerHTML = `
         <div>
           <div class="recap-nom">${p.icone||'☕'} ${nomProduit(p)}</div>
+          ${optionsPanier[id] ? `<div class="recap-options">${resumerOptions(optionsPanier[id])}</div>` : ''}
           <div class="recap-detail">x${qte} × ${prix.toFixed(2)} ${t('dh')}</div>
         </div>
         <div class="recap-prix">${st.toFixed(2)} ${t('dh')}</div>`;
@@ -626,7 +775,8 @@ function confirmerCommande() {
       const p   = produits[id];
       const prix = parseFloat(p.prix||0);
       total += prix * qte;
-      pc[id] = { nom: p.nom, qte, prix };
+      const opts = optionsPanier[id] || null;
+      pc[id] = { nom: p.nom, qte, prix, ...(opts ? { options: opts } : {}) };
     }
   });
   const now   = new Date();
@@ -681,14 +831,27 @@ function demanderPaiement() {
 
 function nouvelleCommande() {
   commandeRef = null; nbPersonnes = 1; panier = {};
+  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
   document.getElementById('nb-personnes').textContent     = '1';
   document.getElementById('icones-personnes').textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
   afficherEcran('ecran-personnes');
 }
 
+function resumerOptions(opts) {
+  if (!opts) return '';
+  const parts = [];
+  if (opts.sucre === 'non')          parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
+  if (opts.sucre === 'oui')          parts.push(`${opts.qteSucre} cube${opts.qteSucre > 1 ? 's' : ''}`);
+  if (opts.saccharine)               parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
+  if (opts.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'Grenadine 🍹' : 'Grenadine 🍹');
+  if (opts.typeSirop === 'menthe')    parts.push(langue === 'ar' ? 'Menthe 🌿' : 'Menthe 🌿');
+  return parts.join(' · ');
+}
+
 function recommencer() {
   commandeRef = null; nbPersonnes = 1; panier = {};
+  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
   document.getElementById('nb-personnes').textContent     = '1';
   document.getElementById('icones-personnes').textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
