@@ -4,10 +4,24 @@ const CATS_BOISSONS = ['cafés', 'thés & infusions', 'thes & infusions',
   'café', 'thé', 'infusions', 'the', 'cafes', 'boissons chaudes',
   'المشروبات الساخنة', 'قهوة', 'شاي'];
 
+function normaliserTexte(s) {
+  // Compatible tous navigateurs — pas de \p{} Unicode property escape
+  return s.toLowerCase()
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[àâä]/g, 'a')
+    .replace(/[ùûü]/g, 'u')
+    .replace(/[îï]/g, 'i')
+    .replace(/[ôö]/g, 'o')
+    .replace(/ç/g, 'c')
+    .trim();
+}
+
+const CATS_BOISSONS_NORM = CATS_BOISSONS.map(normaliserTexte);
+
 function estCategorieBoisson(categorie) {
   if (!categorie) return false;
-  const c = categorie.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
-  return CATS_BOISSONS.some(b => c.includes(b.toLowerCase().replace(/[éèê]/g, 'e').replace(/[àâ]/g, 'a')));
+  const c = normaliserTexte(categorie);
+  return CATS_BOISSONS_NORM.some(b => c.includes(b));
 }
 
 
@@ -18,13 +32,13 @@ const optionsPanier = {};
 //  FIREBASE CONFIG — REMPLACEZ PAR VOS VALEURS
 // ════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "AIzaSyCW7p8-mXaAcMBkXTTEFKHbay_lzI8tL18",
-  authDomain: "gercafe-hmfr.firebaseapp.com",
-  databaseURL: "https://gercafe-hmfr-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "gercafe-hmfr",
-  storageBucket: "gercafe-hmfr.firebasestorage.app",
-  messagingSenderId: "791896470488",
-  appId: "1:791896470488:web:6442b5a16ffbefe7b1b8ad"
+  apiKey: "VOTRE_API_KEY",
+  authDomain: "VOTRE_PROJECT.firebaseapp.com",
+  databaseURL: "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "VOTRE_PROJECT",
+  storageBucket: "VOTRE_PROJECT.appspot.com",
+  messagingSenderId: "VOTRE_SENDER_ID",
+  appId: "VOTRE_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);
@@ -575,10 +589,16 @@ function modifierQte(id, delta) {
 
   // Si on ajoute (+1) une boisson → ouvrir popup options
   if (delta > 0 && nouvelleQte > ancienneQte) {
-    const p = produits[id];
-    if (p && estCategorieBoisson(p.categorie)) {
-      ouvrirPopupOptions(id, p);
-      return; // Attendre confirmation du popup
+    try {
+      const p = produits[id];
+      const popupExiste = !!document.getElementById('popup-options-boisson');
+      if (p && popupExiste && estCategorieBoisson(p.categorie)) {
+        ouvrirPopupOptions(id, p);
+        return; // Attendre confirmation du popup
+      }
+    } catch(e) {
+      console.warn('options popup error:', e);
+      // Continuer sans popup si erreur
     }
   }
 
