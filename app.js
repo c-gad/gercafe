@@ -1,4 +1,3 @@
-
 function normaliserTexte(s) {
   return (s || '').toLowerCase()
     .replace(/[éèêë]/g, 'e')
