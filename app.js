@@ -32,13 +32,13 @@ const optionsPanier = {};
 //  FIREBASE CONFIG — REMPLACEZ PAR VOS VALEURS
 // ════════════════════════════════════════════════════════════
 const firebaseConfig = {
-  apiKey: "VOTRE_API_KEY",
-  authDomain: "VOTRE_PROJECT.firebaseapp.com",
-  databaseURL: "https://VOTRE_PROJECT-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "VOTRE_PROJECT",
-  storageBucket: "VOTRE_PROJECT.appspot.com",
-  messagingSenderId: "VOTRE_SENDER_ID",
-  appId: "VOTRE_APP_ID"
+  apiKey: "AIzaSyCW7p8-mXaAcMBkXTTEFKHbay_lzI8tL18",
+  authDomain: "gercafe-hmfr.firebaseapp.com",
+  databaseURL: "https://gercafe-hmfr-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "gercafe-hmfr",
+  storageBucket: "gercafe-hmfr.firebasestorage.app",
+  messagingSenderId: "791896470488",
+  appId: "1:791896470488:web:6442b5a16ffbefe7b1b8ad"
 };
 
 firebase.initializeApp(firebaseConfig);
