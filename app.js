@@ -1,37 +1,6 @@
-function normaliserTexte(s) {
-  return (s || '').toLowerCase()
-    .replace(/[éèêë]/g, 'e')
-    .replace(/[àâä]/g, 'a')
-    .replace(/[ùûü]/g, 'u')
-    .replace(/[îï]/g, 'i')
-    .replace(/[ôö]/g, 'o')
-    .replace(/ç/g, 'c')
-    .trim();
-}
-
-// Mots-clés : si la catégorie CONTIENT un de ces mots → popup options
-const MOTS_BOISSONS = ['cafe', 'the', 'infus', 'tisane', 'cappuccino',
-  'latte', 'expresso', 'noisette', 'creme', 'choco', 'chai',
-  'قهوة', 'شاي', 'حليب'];
-
-function estCategorieBoisson(categorie) {
-  if (!categorie) return false;
-  const c = normaliserTexte(categorie);
-  return MOTS_BOISSONS.some(mot => c.includes(mot));
-}
-
-// Debug : afficher la catégorie dans la console pour diagnostic
-function debugCategorie(id, categorie) {
-  console.log('Produit:', id, '| Catégorie:', categorie, 
-    '| Boisson:', estCategorieBoisson(categorie));
-}
-
-
-// Options boisson par produit : { produitId: { sucre, qte_sucre, sirop, type_sirop, saccharine } }
-const optionsPanier = {};
-
 // ════════════════════════════════════════════════════════════
-//  FIREBASE CONFIG — REMPLACEZ PAR VOS VALEURS
+//  ⚠️  ÉTAPE 1 OBLIGATOIRE : REMPLACEZ LES 7 VALEURS CI-DESSOUS
+//  Trouvez-les dans Firebase Console → ⚙️ Paramètres → Vos apps → Web
 // ════════════════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyCW7p8-mXaAcMBkXTTEFKHbay_lzI8tL18",
@@ -43,59 +12,41 @@ const firebaseConfig = {
   appId: "1:791896470488:web:6442b5a16ffbefe7b1b8ad"
 };
 
-firebase.initializeApp(firebaseConfig);
+// ════════════════════════════════════════════════════════════
+//  INIT FIREBASE
+// ════════════════════════════════════════════════════════════
+try {
+  firebase.initializeApp(firebaseConfig);
+} catch(e) {
+  console.error('Firebase init error:', e);
+}
 const db = firebase.database();
 
 // ════════════════════════════════════════════════════════════
-//  SONNERIE (Web Audio API — aucune dépendance externe)
+//  SONNERIE (Web Audio API)
 // ════════════════════════════════════════════════════════════
 let audioCtx = null;
-
-function jouerSonnerie(type = 'appel') {
+function jouerSonnerie(type) {
   try {
     if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
+    if (audioCtx.state === 'suspended') audioCtx.resume();
     const configs = {
-      appel: [
-        { freq: 880, dur: 0.15, delay: 0.0 },
-        { freq: 880, dur: 0.15, delay: 0.2 },
-        { freq: 1100, dur: 0.3,  delay: 0.4 },
-      ],
-      servie: [
-        { freq: 523, dur: 0.2,  delay: 0.0 },
-        { freq: 659, dur: 0.2,  delay: 0.25 },
-        { freq: 784, dur: 0.4,  delay: 0.5 },
-      ],
-      paiement: [
-        { freq: 440, dur: 0.15, delay: 0.0 },
-        { freq: 554, dur: 0.15, delay: 0.2 },
-        { freq: 659, dur: 0.15, delay: 0.4 },
-        { freq: 880, dur: 0.35, delay: 0.6 },
-      ],
+      appel:    [{ f:880,  d:0.15, t:0.0 }, { f:880,  d:0.15, t:0.2 }, { f:1100, d:0.3, t:0.4 }],
+      servie:   [{ f:523,  d:0.2,  t:0.0 }, { f:659,  d:0.2,  t:0.25 }, { f:784, d:0.4, t:0.5 }],
+      paiement: [{ f:440,  d:0.15, t:0.0 }, { f:554,  d:0.15, t:0.2 }, { f:659, d:0.15, t:0.4 }, { f:880, d:0.35, t:0.6 }],
     };
-
     const notes = configs[type] || configs.appel;
-    const now   = audioCtx.currentTime;
-
-    notes.forEach(({ freq, dur, delay }) => {
-      const osc  = audioCtx.createOscillator();
+    const now = audioCtx.currentTime;
+    notes.forEach(({ f, d, t }) => {
+      const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
-
-      osc.connect(gain);
-      gain.connect(audioCtx.destination);
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now + delay);
-
-      gain.gain.setValueAtTime(0.4, now + delay);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + dur);
-
-      osc.start(now + delay);
-      osc.stop(now + delay + dur + 0.05);
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      osc.frequency.setValueAtTime(f, now + t);
+      gain.gain.setValueAtTime(0.4, now + t);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + t + d);
+      osc.start(now + t); osc.stop(now + t + d + 0.05);
     });
-  } catch (e) {
-    console.log('Audio non supporté:', e);
-  }
+  } catch(e) { console.log('Audio:', e); }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -115,7 +66,7 @@ const TRAD = {
     votre_commande:     'Votre commande',
     recapitulatif:      'Récapitulatif',
     confirmer:          '✅ CONFIRMER',
-    en_preparation:     'Votre commande est\nen préparation…',
+    en_preparation:     'Votre commande est en préparation…',
     reference:          'Référence',
     attente_sous:       "Le serveur s'occupe de vous très bientôt ☕",
     bonne_degustation:  'Bonne dégustation !',
@@ -130,13 +81,13 @@ const TRAD = {
     total:              'Total :',
     table_label:        'Table',
     table_reservee:     'Table réservée',
-    table_occupee:      'Cette table est actuellement occupée par un autre client.',
-    verification:       'Vérification automatique toutes les 10 secondes…',
+    table_occupee:      'Cette table est occupée par un autre client.',
+    verification:       'Vérification toutes les 10 secondes…',
     dh:                 'Dh',
     selectionner:       'Veuillez sélectionner au moins un produit',
     erreur:             'Erreur : ',
     popup_titre:        "Besoin d'aide ?",
-    popup_sous:         'Choisissez ce dont vous avez besoin.\nLe serveur arrive rapidement.',
+    popup_sous:         'Choisissez ce dont vous avez besoin.',
     opt_serveur_titre:  'Appeler le serveur',
     opt_serveur_desc:   'Le serveur vient à votre table',
     opt_addition_titre: "Demander l'addition",
@@ -149,6 +100,19 @@ const TRAD = {
     toast_eau:          '💧 De l\'eau arrive !',
     toast_erreur:       '❌ Erreur, réessayez',
     langue_btn:         '🇲🇦 ع',
+    // Options boisson
+    opt_bois_titre:     'Personnalisez votre boisson',
+    opt_sucre:          '🍬 Sucre',
+    opt_sans_sucre:     'Sans sucre',
+    opt_avec_sucre:     'Avec sucre',
+    opt_saccharine:     'Saccharine 💊',
+    opt_qte_sucre:      'Quantité',
+    opt_sirop:          '🍹 Sirop',
+    opt_sans_sirop:     'Sans sirop',
+    opt_grenadine:      'Grenadine 🍓',
+    opt_menthe:         'Menthe 🌿',
+    opt_ajouter:        'Ajouter ✓',
+    opt_annuler:        'Annuler',
   },
   ar: {
     bienvenue:          (n) => `طاولة ${n} — أهلاً بك !`,
@@ -157,13 +121,13 @@ const TRAD = {
     commander:          'اطلب الآن',
     appeler_serveur:    'استدعاء النادل',
     notre_menu:         'قائمتنا',
-    retour:             'رجوع →',
+    retour:             'رجوع',
     nb_personnes:       'كم عدد الأشخاص ؟',
-    suivant:            '← التالي',
+    suivant:            'التالي',
     votre_commande:     'طلبك',
     recapitulatif:      'ملخص الطلب',
     confirmer:          '✅ تأكيد الطلب',
-    en_preparation:     'طلبك قيد\nالتحضير…',
+    en_preparation:     'طلبك قيد التحضير…',
     reference:          'المرجع',
     attente_sous:       'النادل في طريقه إليك ☕',
     bonne_degustation:  'بالهناء والشفاء !',
@@ -178,13 +142,13 @@ const TRAD = {
     total:              ': المجموع',
     table_label:        'طاولة',
     table_reservee:     'الطاولة محجوزة',
-    table_occupee:      'هذه الطاولة مشغولة حالياً من طرف زبون آخر.',
-    verification:       'فحص تلقائي كل 10 ثوانٍ…',
+    table_occupee:      'هذه الطاولة مشغولة حالياً.',
+    verification:       'فحص كل 10 ثوانٍ…',
     dh:                 'درهم',
     selectionner:       'الرجاء اختيار منتج واحد على الأقل',
     erreur:             'خطأ : ',
     popup_titre:        'هل تحتاج مساعدة ؟',
-    popup_sous:         'اختر ما تحتاجه،\nالنادل سيصل بسرعة.',
+    popup_sous:         'اختر ما تحتاجه.',
     opt_serveur_titre:  'استدعاء النادل',
     opt_serveur_desc:   'النادل يأتي إلى طاولتك',
     opt_addition_titre: 'طلب الحساب',
@@ -197,17 +161,30 @@ const TRAD = {
     toast_eau:          '💧 الماء في الطريق !',
     toast_erreur:       '❌ خطأ، حاول مجدداً',
     langue_btn:         '🇫🇷 FR',
+    opt_bois_titre:     'خصص مشروبك',
+    opt_sucre:          '🍬 السكر',
+    opt_sans_sucre:     'بدون سكر',
+    opt_avec_sucre:     'مع سكر',
+    opt_saccharine:     'سكرين 💊',
+    opt_qte_sucre:      'الكمية',
+    opt_sirop:          '🍹 شراب',
+    opt_sans_sirop:     'بدون شراب',
+    opt_grenadine:      'رمان 🍓',
+    opt_menthe:         'نعنع 🌿',
+    opt_ajouter:        'إضافة ✓',
+    opt_annuler:        'إلغاء',
   }
 };
 
 // ════════════════════════════════════════════════════════════
-//  VARIABLES
+//  VARIABLES GLOBALES
 // ════════════════════════════════════════════════════════════
 let langue           = localStorage.getItem('gercafe_langue') || 'fr';
 let numeroTable      = 0;
 let nbPersonnes      = 1;
 let produits         = {};
 let panier           = {};
+let optionsPanier    = {};   // options boisson par produit
 let commandeRef      = null;
 let ecouteurCommande = null;
 let sessionId        = null;
@@ -216,6 +193,25 @@ const t = (key, ...args) => {
   const val = TRAD[langue][key];
   return typeof val === 'function' ? val(...args) : (val ?? TRAD['fr'][key] ?? key);
 };
+
+// ════════════════════════════════════════════════════════════
+//  CATÉGORIES BOISSON — détection flexible
+// ════════════════════════════════════════════════════════════
+function norm(s) {
+  return (s || '').toLowerCase()
+    .replace(/[éèêë]/g, 'e').replace(/[àâä]/g, 'a')
+    .replace(/[ùûü]/g, 'u').replace(/[îï]/g, 'i')
+    .replace(/[ôö]/g, 'o').replace(/ç/g, 'c').trim();
+}
+
+const MOTS_BOIS = ['cafe', 'the', 'infus', 'tisane', 'cappuccino',
+  'latte', 'expresso', 'noisette', 'chocolat', 'choco', 'chai',
+  'قهوة', 'شاي', 'حليب', 'مشروب'];
+
+function estBoisson(cat) {
+  const c = norm(cat);
+  return MOTS_BOIS.some(m => c.includes(m));
+}
 
 // ════════════════════════════════════════════════════════════
 //  SESSION
@@ -230,115 +226,75 @@ function genererSessionId() {
 }
 
 // ════════════════════════════════════════════════════════════
-//  SYNC IDENTITÉ CAFÉ DEPUIS FIREBASE
-//  Admin modifie → page web se met à jour automatiquement
-// ════════════════════════════════════════════════════════════
-function ecouterIdentiteCafe() {
-  db.ref('config/cafe').on('value', (snap) => {
-    if (!snap.exists()) return;
-    const config = snap.val();
-
-    // Nom du café
-    if (config.nom) {
-      document.querySelectorAll('.nom-cafe, .nom-cafe-header').forEach(el => {
-        el.textContent = config.nom.toUpperCase();
-      });
-      document.title = config.nom + ' — Commander';
-    }
-
-    // Logo
-    if (config.logoUrl) {
-      document.querySelectorAll('.logo-cercle, .logo-grand-cafe').forEach(el => {
-        el.innerHTML = `<img src="${config.logoUrl}" 
-          style="width:100%;height:100%;object-fit:cover;border-radius:50%;" 
-          alt="logo">`;
-      });
-    }
-
-    // Langue depuis Firebase (admin a priorité)
-    if (config.langue && config.langue !== langue) {
-      langue = config.langue;
-      localStorage.setItem('gercafe_langue', langue);
-      appliquerLangue();
-    }
-  });
-}
-
-// ════════════════════════════════════════════════════════════
-//  APPLIQUER LA LANGUE
+//  APPLIQUER LANGUE
 // ════════════════════════════════════════════════════════════
 function appliquerLangue() {
   const isAr = langue === 'ar';
   document.documentElement.dir  = isAr ? 'rtl' : 'ltr';
   document.documentElement.lang = isAr ? 'ar'  : 'fr';
-  document.body.style.fontFamily = isAr
-    ? "'Noto Naskh Arabic', 'Segoe UI', sans-serif"
-    : "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
 
-  const el = document.getElementById('btn-langue');
-  if (el) el.textContent = t('langue_btn');
+  const el = (id) => document.getElementById(id);
+  const tx = (id, key) => { const e = el(id); if (e) e.textContent = t(key); };
 
-  const map = {
-    'txt-chargement':      'chargement',
-    'txt-menu-btn':        'menu',
-    'txt-commander-btn':   'commander',
-    'txt-appel-btn':       'appeler_serveur',
-    'titre-menu':          'notre_menu',
-    'titre-personnes':     'nb_personnes',
-    'btn-suivant':         'suivant',
-    'titre-commande':      'votre_commande',
-    'titre-recap':         'recapitulatif',
-    'btn-confirmer':       'confirmer',
-    'txt-reference':       'reference',
-    'txt-attente-sous':    'attente_sous',
-    'txt-bonne-deg':       'bonne_degustation',
-    'txt-servie-sous':     'commande_servie',
-    'btn-payer':           'payer',
-    'btn-nouvelle-cmd':    'nouvelle_cmd',
-    'txt-paiement':        'paiement_cours',
-    'txt-paiement-sous':   'paiement_sous',
-    'txt-merci':           'merci',
-    'txt-abientot':        'a_bientot',
-    'btn-session':         'nouvelle_session',
-    'txt-reserve-titre':   'table_reservee',
-    'txt-table-label':     'table_label',
-    'txt-reserve-texte':   'table_occupee',
-    'txt-reserve-verif':   'verification',
-    'popup-titre':         'popup_titre',
-    'popup-sous':          'popup_sous',
-    'opt-serveur-titre':   'opt_serveur_titre',
-    'opt-serveur-desc':    'opt_serveur_desc',
-    'opt-addition-titre':  'opt_addition_titre',
-    'opt-addition-desc':   'opt_addition_desc',
-    'opt-eau-titre':       'opt_eau_titre',
-    'opt-eau-desc':        'opt_eau_desc',
-    'popup-btn-fermer':    'popup_fermer',
-  };
+  tx('btn-langue',          'langue_btn');
+  tx('txt-chargement',      'chargement');
+  tx('txt-menu-btn',        'menu');
+  tx('txt-commander-btn',   'commander');
+  tx('txt-appel-btn',       'appeler_serveur');
+  tx('titre-menu',          'notre_menu');
+  tx('titre-personnes',     'nb_personnes');
+  tx('btn-suivant',         'suivant');
+  tx('titre-commande',      'votre_commande');
+  tx('titre-recap',         'recapitulatif');
+  tx('btn-confirmer',       'confirmer');
+  tx('txt-reference',       'reference');
+  tx('txt-attente-sous',    'attente_sous');
+  tx('txt-bonne-deg',       'bonne_degustation');
+  tx('txt-servie-sous',     'commande_servie');
+  tx('btn-payer',           'payer');
+  tx('btn-nouvelle-cmd',    'nouvelle_cmd');
+  tx('txt-paiement',        'paiement_cours');
+  tx('txt-paiement-sous',   'paiement_sous');
+  tx('txt-merci',           'merci');
+  tx('txt-abientot',        'a_bientot');
+  tx('btn-session',         'nouvelle_session');
+  tx('txt-reserve-titre',   'table_reservee');
+  tx('txt-table-label',     'table_label');
+  tx('txt-reserve-texte',   'table_occupee');
+  tx('txt-reserve-verif',   'verification');
+  tx('popup-titre',         'popup_titre');
+  tx('popup-sous',          'popup_sous');
+  tx('opt-serveur-titre',   'opt_serveur_titre');
+  tx('opt-serveur-desc',    'opt_serveur_desc');
+  tx('opt-addition-titre',  'opt_addition_titre');
+  tx('opt-addition-desc',   'opt_addition_desc');
+  tx('opt-eau-titre',       'opt_eau_titre');
+  tx('opt-eau-desc',        'opt_eau_desc');
+  tx('popup-btn-fermer',    'popup_fermer');
+  // Options boisson
+  tx('lbl-opt-sucre',       'opt_sucre');
+  tx('lbl-sans-sucre',      'opt_sans_sucre');
+  tx('lbl-avec-sucre',      'opt_avec_sucre');
+  tx('lbl-saccharine',      'opt_saccharine');
+  tx('lbl-qte-sucre',       'opt_qte_sucre');
+  tx('lbl-opt-sirop',       'opt_sirop');
+  tx('lbl-sans-sirop',      'opt_sans_sirop');
+  tx('lbl-grenadine',       'opt_grenadine');
+  tx('lbl-menthe',          'opt_menthe');
+  tx('btn-opt-confirmer',   'opt_ajouter');
+  tx('btn-opt-annuler',     'opt_annuler');
 
-  Object.entries(map).forEach(([id, key]) => {
-    const el = document.getElementById(id);
-    if (el) el.textContent = t(key);
-  });
-
-  document.querySelectorAll('.btn-retour').forEach(el => {
-    el.textContent = t('retour');
-  });
-  document.querySelectorAll('.label-total').forEach(el => {
-    el.textContent = t('total');
-  });
-  document.querySelectorAll('.txt-appel-inline').forEach(el => {
-    el.textContent = t('appeler_serveur');
-  });
+  document.querySelectorAll('.btn-retour').forEach(e => e.textContent = t('retour'));
+  document.querySelectorAll('.label-total').forEach(e => e.textContent = t('total'));
+  document.querySelectorAll('.txt-appel-inline').forEach(e => e.textContent = t('appeler_serveur'));
 
   if (numeroTable > 0) {
-    const bv = document.getElementById('bienvenue-table');
+    const bv = el('bienvenue-table');
     if (bv) bv.textContent = t('bienvenue', numeroTable);
-    const it = document.getElementById('info-table-commande');
-    if (it) it.textContent = `${t('table_label')} ${numeroTable}`;
-    const ir = document.getElementById('info-table-recap');
-    if (ir) ir.textContent = `${t('table_label')} ${numeroTable}`;
-    const ta = document.getElementById('table-affichee');
-    if (ta) ta.textContent = `${t('table_label')} ${numeroTable}`;
+    ['info-table-commande','info-table-recap','table-affichee'].forEach(id => {
+      const e = el(id);
+      if (e) e.textContent = t('table_label') + ' ' + numeroTable;
+    });
   }
 
   if (Object.keys(produits).length > 0) {
@@ -350,73 +306,175 @@ function appliquerLangue() {
 function changerLangue() {
   langue = langue === 'fr' ? 'ar' : 'fr';
   localStorage.setItem('gercafe_langue', langue);
-  localStorage.setItem('gercafe_langue_force', '1'); // L'utilisateur a choisi manuellement
   appliquerLangue();
+}
+
+// ════════════════════════════════════════════════════════════
+//  SYNC IDENTITÉ CAFÉ (nom/langue/logo depuis Firebase)
+// ════════════════════════════════════════════════════════════
+function ecouterIdentiteCafe() {
+  try {
+    db.ref('config/cafe').on('value', (snap) => {
+      if (!snap.exists()) return;
+      const cfg = snap.val();
+      if (cfg.nom) {
+        document.querySelectorAll('.nom-cafe, .nom-cafe-header').forEach(e => {
+          e.textContent = cfg.nom.toUpperCase();
+        });
+        document.title = cfg.nom + ' — Commander';
+      }
+      if (cfg.logoUrl) {
+        document.querySelectorAll('.logo-cercle').forEach(e => {
+          e.innerHTML = `<img src="${cfg.logoUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`;
+        });
+      }
+      if (cfg.langue && cfg.langue !== langue) {
+        langue = cfg.langue;
+        localStorage.setItem('gercafe_langue', langue);
+        appliquerLangue();
+      }
+    });
+  } catch(e) { console.warn('config/cafe:', e); }
 }
 
 // ════════════════════════════════════════════════════════════
 //  POPUP APPEL SERVEUR
 // ════════════════════════════════════════════════════════════
 function ouvrirPopupAppel() {
-  // Débloquer le contexte audio au premier geste utilisateur
   if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
-  document.getElementById('popup-appel').classList.add('ouvert');
+  const p = document.getElementById('popup-appel');
+  if (p) p.classList.add('ouvert');
 }
-
-function fermerPopupAppel(event) {
-  if (!event || event.target === document.getElementById('popup-appel')) {
-    document.getElementById('popup-appel').classList.remove('ouvert');
+function fermerPopupAppel(e) {
+  if (!e || e.target === document.getElementById('popup-appel')) {
+    const p = document.getElementById('popup-appel');
+    if (p) p.classList.remove('ouvert');
   }
 }
-
 function envoyerAppel(type) {
-  document.getElementById('popup-appel').classList.remove('ouvert');
+  const p = document.getElementById('popup-appel');
+  if (p) p.classList.remove('ouvert');
+  const u = { appel_serveur: true };
+  let msg = '', son = 'appel';
+  if (type === 'serveur')   { u.statut = 'appel_serveur'; u.type_appel = 'serveur'; msg = t('toast_serveur'); }
+  if (type === 'addition')  { u.statut = 'demande_paiement'; u.type_appel = 'addition'; u.demande_paiement = true; msg = t('toast_addition'); son = 'paiement';
+    if (commandeRef) db.ref('commandes/' + commandeRef).update({ statut: 'demande_paiement', demande_paiement: true }); }
+  if (type === 'eau')       { u.statut = 'appel_serveur'; u.type_appel = 'eau'; msg = t('toast_eau'); }
+  jouerSonnerie(son);
+  db.ref('tables/' + numeroTable).update(u)
+    .then(() => toast(msg, '#2E7D4F'))
+    .catch(() => toast(t('toast_erreur'), '#C0392B'));
+}
 
-  const updates = { appel_serveur: true };
-  let toastMsg  = '';
-  let sonType   = 'appel';
-
-  if (type === 'serveur') {
-    updates.statut     = 'appel_serveur';
-    updates.type_appel = 'serveur';
-    toastMsg = t('toast_serveur');
-    sonType  = 'appel';
-  } else if (type === 'addition') {
-    updates.statut           = 'demande_paiement';
-    updates.type_appel       = 'addition';
-    updates.demande_paiement = true;
-    toastMsg = t('toast_addition');
-    sonType  = 'paiement';
-    if (commandeRef) {
-      db.ref(`commandes/${commandeRef}`).update({
-        statut: 'demande_paiement', demande_paiement: true,
-      });
-    }
-  } else if (type === 'eau') {
-    updates.statut     = 'appel_serveur';
-    updates.type_appel = 'eau';
-    toastMsg = t('toast_eau');
-    sonType  = 'appel';
+// ════════════════════════════════════════════════════════════
+//  POPUP OPTIONS BOISSON
+// ════════════════════════════════════════════════════════════
+function ouvrirPopupOptions(produitId, produit) {
+  const popup = document.getElementById('popup-options-boisson');
+  if (!popup) {
+    // Popup absent → ajouter directement sans options
+    _confirmerAjoutSansOptions(produitId);
+    return;
   }
 
-  // Jouer la sonnerie AVANT l'écriture Firebase
-  jouerSonnerie(sonType);
+  const nomEl = document.getElementById('opt-boisson-nom');
+  if (nomEl) nomEl.textContent = nomProduit(produit);
 
-  db.ref(`tables/${numeroTable}`)
-    .update(updates)
-    .then(() => afficherToast(toastMsg, '#2E7D4F'))
-    .catch(() => afficherToast(t('toast_erreur'), '#C0392B'));
+  let choix = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+
+  function maj() {
+    const actif = (id, cond) => {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('actif', !!cond);
+    };
+    actif('opt-btn-sans-sucre', choix.sucre === 'non');
+    actif('opt-btn-avec-sucre', choix.sucre === 'oui');
+    actif('opt-btn-saccharine', !!choix.saccharine);
+
+    const show = choix.sucre === 'oui';
+    ['zone-qte-sucre', 'zone-sirop'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = show ? 'block' : 'none';
+    });
+
+    ['05','1','2','3'].forEach(v => actif('opt-cube-' + v, false));
+    if (choix.qteSucre) actif('opt-cube-' + choix.qteSucre.replace('.',''), choix.qteSucre);
+
+    actif('opt-sirop-non',       choix.sirop === 'non' && !choix.typeSirop);
+    actif('opt-sirop-grenadine', choix.typeSirop === 'grenadine');
+    actif('opt-sirop-menthe',    choix.typeSirop === 'menthe');
+  }
+
+  function btn(id, fn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+    document.getElementById(id).addEventListener('click', fn);
+  }
+
+  btn('opt-btn-sans-sucre', () => { choix = { sucre:'non', qteSucre:null, sirop:null, typeSirop:null, saccharine:false }; maj(); });
+  btn('opt-btn-avec-sucre', () => { choix.sucre = 'oui'; choix.saccharine = false; if (!choix.qteSucre) choix.qteSucre = '1'; if (!choix.sirop) choix.sirop = 'non'; maj(); });
+  btn('opt-btn-saccharine', () => { choix = { sucre:'saccharine', qteSucre:null, sirop:null, typeSirop:null, saccharine:true }; maj(); });
+  btn('opt-cube-05', () => { choix.qteSucre = '0.5'; maj(); });
+  btn('opt-cube-1',  () => { choix.qteSucre = '1';   maj(); });
+  btn('opt-cube-2',  () => { choix.qteSucre = '2';   maj(); });
+  btn('opt-cube-3',  () => { choix.qteSucre = '3';   maj(); });
+  btn('opt-sirop-non',       () => { choix.sirop = 'non'; choix.typeSirop = null;         maj(); });
+  btn('opt-sirop-grenadine', () => { choix.sirop = 'oui'; choix.typeSirop = 'grenadine'; maj(); });
+  btn('opt-sirop-menthe',    () => { choix.sirop = 'oui'; choix.typeSirop = 'menthe';    maj(); });
+
+  btn('btn-opt-annuler', () => popup.classList.remove('ouvert'));
+
+  btn('btn-opt-confirmer', () => {
+    optionsPanier[produitId] = { ...choix };
+    _confirmerAjoutSansOptions(produitId);
+    afficherBadgeOptions(produitId, choix);
+    popup.classList.remove('ouvert');
+  });
+
+  maj();
+  popup.classList.add('ouvert');
+}
+
+function _confirmerAjoutSansOptions(produitId) {
+  panier[produitId] = (panier[produitId] || 0) + 1;
+  const q = document.getElementById('qte-' + produitId);
+  const c = document.getElementById('item-' + produitId);
+  if (q) q.textContent = panier[produitId];
+  if (c) c.classList.add('selectionne');
+  mettreAJourTotal();
+}
+
+function afficherBadgeOptions(id, choix) {
+  const card = document.getElementById('item-' + id);
+  if (!card) return;
+  let badge = card.querySelector('.badge-options');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'badge-options';
+    const info = card.querySelector('.produit-info');
+    if (info) info.appendChild(badge);
+  }
+  const parts = [];
+  if (choix.sucre === 'non')           parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
+  if (choix.sucre === 'oui' && choix.qteSucre) parts.push(choix.qteSucre + ' cube' + (choix.qteSucre > 1 ? 's' : ''));
+  if (choix.saccharine)                parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
+  if (choix.typeSirop === 'grenadine') parts.push('Grenadine');
+  if (choix.typeSirop === 'menthe')    parts.push('Menthe');
+  badge.textContent = parts.join(' · ');
 }
 
 // ════════════════════════════════════════════════════════════
 //  TOAST
 // ════════════════════════════════════════════════════════════
-function afficherToast(message, couleur = '#2E7D4F') {
-  const toast = document.getElementById('toast');
-  toast.textContent      = message;
-  toast.style.background = couleur;
-  toast.style.display    = 'block';
-  setTimeout(() => { toast.style.display = 'none'; }, 3000);
+function toast(msg, couleur) {
+  const el = document.getElementById('toast');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.background = couleur || '#2E7D4F';
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -426,18 +484,15 @@ window.onload = function () {
   const urlParams = new URLSearchParams(window.location.search);
   numeroTable = parseInt(urlParams.get('table')) || 0;
   sessionId   = genererSessionId();
-
   appliquerLangue();
-  ecouterIdentiteCafe(); // ← sync logo/nom/langue depuis Firebase
+  ecouterIdentiteCafe();
 
   if (numeroTable === 0) {
-    document.getElementById('bienvenue-table').textContent =
-      langue === 'ar' ? 'قم بمسح رمز QR الخاص بطاولتك'
-                      : 'Scannez le QR code de votre table';
+    const bv = document.getElementById('bienvenue-table');
+    if (bv) bv.textContent = langue === 'ar' ? 'قم بمسح رمز QR الخاص بطاولتك' : 'Scannez le QR code de votre table';
     afficherEcran('ecran-accueil');
     return;
   }
-
   verifierSessionTable();
 };
 
@@ -447,45 +502,39 @@ window.onload = function () {
 function verifierSessionTable() {
   afficherEcran('ecran-chargement');
 
-  // Timeout de secours : si Firebase ne répond pas en 6s → charger quand même
-  const timeoutSecours = setTimeout(() => {
-    console.warn('Firebase timeout — chargement direct');
+  const fallback = setTimeout(() => {
+    console.warn('Firebase timeout → chargement direct');
     chargerProduits();
   }, 6000);
 
-  db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
-    clearTimeout(timeoutSecours);
+  db.ref('tables/' + numeroTable + '/session_web').once('value', (snap) => {
+    clearTimeout(fallback);
     const s = snap.val();
     (!s || s === sessionId) ? prendreTable() : afficherEcranReserve();
-  }, (error) => {
-    // Erreur Firebase (règles, réseau) → charger quand même
-    clearTimeout(timeoutSecours);
-    console.warn('Firebase error session:', error);
+  }, (err) => {
+    clearTimeout(fallback);
+    console.warn('Session error:', err);
     chargerProduits();
   });
 }
 
 function prendreTable() {
-  // Tenter d'écrire la session, mais charger les produits dans tous les cas
-  db.ref(`tables/${numeroTable}/session_web`).set(sessionId)
+  db.ref('tables/' + numeroTable + '/session_web').set(sessionId)
     .then(() => {
-      try {
-        db.ref(`tables/${numeroTable}/session_web`).onDisconnect().remove();
-      } catch(e) {}
+      try { db.ref('tables/' + numeroTable + '/session_web').onDisconnect().remove(); } catch(e) {}
       chargerProduits();
     })
-    .catch(() => chargerProduits()); // Si écriture interdite → charger quand même
+    .catch(() => chargerProduits());
 }
 
 function afficherEcranReserve() {
   document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
   const ecran = document.getElementById('ecran-reserve');
-  if (ecran) {
-    ecran.classList.add('actif');
-    document.getElementById('reserve-table-num').textContent = numeroTable;
-  }
+  if (ecran) ecran.classList.add('actif');
+  const n = document.getElementById('reserve-table-num');
+  if (n) n.textContent = numeroTable;
   setTimeout(() => {
-    db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
+    db.ref('tables/' + numeroTable + '/session_web').once('value', (snap) => {
       const s = snap.val();
       (!s || s === sessionId) ? prendreTable() : afficherEcranReserve();
     });
@@ -494,43 +543,42 @@ function afficherEcranReserve() {
 
 function libererTable() {
   if (!numeroTable || !sessionId) return;
-  db.ref(`tables/${numeroTable}/session_web`).once('value', (snap) => {
-    if (snap.val() === sessionId)
-      db.ref(`tables/${numeroTable}/session_web`).remove();
-  });
+  try {
+    db.ref('tables/' + numeroTable + '/session_web').once('value', (snap) => {
+      if (snap.val() === sessionId)
+        db.ref('tables/' + numeroTable + '/session_web').remove();
+    });
+  } catch(e) {}
 }
-
 window.addEventListener('beforeunload', libererTable);
 
 // ════════════════════════════════════════════════════════════
-//  CHARGER PRODUITS (depuis Firebase — sync avec ProduitsScreen)
+//  CHARGER PRODUITS
 // ════════════════════════════════════════════════════════════
 function chargerProduits() {
-  // Timeout de secours : si Firebase ne répond pas → afficher accueil vide
-  const timeoutProduits = setTimeout(() => {
-    console.warn('Firebase produits timeout — affichage sans produits');
+  const fallback = setTimeout(() => {
+    console.warn('Produits timeout → accueil vide');
+    appliquerLangue();
     afficherEcran('ecran-accueil');
   }, 8000);
 
   db.ref('produits').once('value', (snap) => {
-    clearTimeout(timeoutProduits);
+    clearTimeout(fallback);
     produits = {};
     if (snap.exists()) {
       snap.forEach(child => {
         const p = child.val();
-        if (p && p.disponible !== false) {
-          produits[child.key] = p;
-        }
+        if (p && p.disponible !== false) produits[child.key] = p;
       });
     }
     appliquerLangue();
     afficherEcran('ecran-accueil');
     construireMenu();
     construireListeCommande();
-  }, (error) => {
-    clearTimeout(timeoutProduits);
-    console.warn('Firebase produits error:', error);
-    // Afficher l'accueil même sans produits
+  }, (err) => {
+    clearTimeout(fallback);
+    console.warn('Produits error:', err);
+    appliquerLangue();
     afficherEcran('ecran-accueil');
   });
 }
@@ -539,62 +587,60 @@ function nomProduit(p) {
   return langue === 'ar' ? (p.nom_ar || p.nom) : p.nom;
 }
 
+// ════════════════════════════════════════════════════════════
+//  CONSTRUIRE MENU (lecture seule)
+// ════════════════════════════════════════════════════════════
 function construireMenu() {
-  const container = document.getElementById('liste-menu');
-  if (!container) return;
-  container.innerHTML = '';
+  const c = document.getElementById('liste-menu');
+  if (!c) return;
+  c.innerHTML = '';
   const cats = {};
   Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar'
-      ? (p.categorie_ar || p.categorie || 'أخرى')
-      : (p.categorie || 'Autre');
+    const cat = langue === 'ar' ? (p.categorie_ar || p.categorie || 'أخرى') : (p.categorie || 'Autre');
     if (!cats[cat]) cats[cat] = [];
     cats[cat].push({ id, ...p });
   });
   Object.entries(cats).forEach(([cat, items]) => {
     const h = document.createElement('div');
-    h.className = 'categorie-titre';
-    h.textContent = cat;
-    container.appendChild(h);
+    h.className = 'categorie-titre'; h.textContent = cat;
+    c.appendChild(h);
     items.forEach(item => {
       const el = document.createElement('div');
       el.className = 'produit-item';
-      el.innerHTML = `
-        <span class="produit-icone">${item.icone || '☕'}</span>
+      el.innerHTML = `<span class="produit-icone">${item.icone || '☕'}</span>
         <div class="produit-info">
           <div class="produit-nom">${nomProduit(item)}</div>
           <div class="produit-prix">${parseFloat(item.prix||0).toFixed(2)} ${t('dh')}</div>
         </div>`;
-      container.appendChild(el);
+      c.appendChild(el);
     });
   });
 }
 
+// ════════════════════════════════════════════════════════════
+//  CONSTRUIRE LISTE COMMANDE (avec +/−)
+// ════════════════════════════════════════════════════════════
 function construireListeCommande() {
-  const container = document.getElementById('liste-commande');
-  if (!container) return;
-  container.innerHTML = '';
+  const c = document.getElementById('liste-commande');
+  if (!c) return;
+  c.innerHTML = '';
   panier = {};
   const cats = {};
   Object.entries(produits).forEach(([id, p]) => {
-    const cat = langue === 'ar'
-      ? (p.categorie_ar || p.categorie || 'أخرى')
-      : (p.categorie || 'Autre');
+    const cat = langue === 'ar' ? (p.categorie_ar || p.categorie || 'أخرى') : (p.categorie || 'Autre');
     if (!cats[cat]) cats[cat] = [];
     cats[cat].push({ id, ...p });
   });
   Object.entries(cats).forEach(([cat, items]) => {
     const h = document.createElement('div');
-    h.className = 'categorie-titre';
-    h.textContent = cat;
-    container.appendChild(h);
+    h.className = 'categorie-titre'; h.textContent = cat;
+    c.appendChild(h);
     items.forEach(item => {
       panier[item.id] = 0;
       const el = document.createElement('div');
       el.className = 'produit-item';
-      el.id = `item-${item.id}`;
-      el.innerHTML = `
-        <span class="produit-icone">${item.icone || '☕'}</span>
+      el.id = 'item-' + item.id;
+      el.innerHTML = `<span class="produit-icone">${item.icone || '☕'}</span>
         <div class="produit-info">
           <div class="produit-nom">${nomProduit(item)}</div>
           <div class="produit-prix">${parseFloat(item.prix||0).toFixed(2)} ${t('dh')}</div>
@@ -604,7 +650,7 @@ function construireListeCommande() {
           <span class="qte-affichage" id="qte-${item.id}">0</span>
           <button class="btn-compteur" onclick="modifierQte('${item.id}',1)">+</button>
         </div>`;
-      container.appendChild(el);
+      c.appendChild(el);
     });
   });
 }
@@ -613,163 +659,33 @@ function construireListeCommande() {
 //  PANIER
 // ════════════════════════════════════════════════════════════
 function modifierQte(id, delta) {
-  const ancienneQte = panier[id] || 0;
-  const nouvelleQte = Math.max(0, ancienneQte + delta);
+  const ancQte  = panier[id] || 0;
+  const nvQte   = Math.max(0, ancQte + delta);
 
-  // Si on ajoute (+1) une boisson → ouvrir popup options
-  if (delta > 0 && nouvelleQte > ancienneQte) {
-    try {
-      const p = produits[id];
-      if (p) debugCategorie(id, p.categorie);
-      const popup = document.getElementById('popup-options-boisson');
-      if (p && popup && estCategorieBoisson(p.categorie)) {
-        ouvrirPopupOptions(id, p);
-        return;
-      }
-    } catch(e) {
-      console.warn('options popup error:', e);
+  if (delta > 0) {
+    const p = produits[id];
+    if (p && estBoisson(p.categorie)) {
+      ouvrirPopupOptions(id, p);
+      return; // ajout géré par le popup
     }
   }
 
-  panier[id] = nouvelleQte;
-  if (nouvelleQte === 0) delete optionsPanier[id];
-  const q = document.getElementById(`qte-${id}`);
-  const c = document.getElementById(`item-${id}`);
-  if (q) q.textContent = nouvelleQte;
-  if (c) c.classList.toggle('selectionne', nouvelleQte > 0);
+  panier[id] = nvQte;
+  if (nvQte === 0) delete optionsPanier[id];
+  const q = document.getElementById('qte-' + id);
+  const c = document.getElementById('item-' + id);
+  if (q) q.textContent = nvQte;
+  if (c) c.classList.toggle('selectionne', nvQte > 0);
   mettreAJourTotal();
 }
-
-// ════════════════════════════════════════════════════════════
-//  POPUP OPTIONS BOISSON
-// ════════════════════════════════════════════════════════════
-function ouvrirPopupOptions(produitId, produit) {
-  const popup = document.getElementById('popup-options-boisson');
-  if (!popup) {
-    console.warn('popup-options-boisson introuvable dans le DOM');
-    // Ajouter quand même le produit sans options
-    panier[produitId] = (panier[produitId] || 0) + 1;
-    const q = document.getElementById('qte-' + produitId);
-    const c = document.getElementById('item-' + produitId);
-    if (q) q.textContent = panier[produitId];
-    if (c) c.classList.add('selectionne');
-    mettreAJourTotal();
-    return;
-  }
-
-  // Titre
-  const titreEl = document.getElementById('opt-boisson-nom');
-  if (titreEl) titreEl.textContent = nomProduit(produit);
-
-  // État local
-  let choix = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
-
-  function setActif(id, actif) {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('actif', actif);
-  }
-
-  function rendreBtns() {
-    setActif('opt-sans-sucre',  choix.sucre === 'non');
-    setActif('opt-avec-sucre',  choix.sucre === 'oui');
-    setActif('opt-saccharine',  !!choix.saccharine);
-
-    const zoneQte   = document.getElementById('zone-qte-sucre');
-    const zoneSirop = document.getElementById('zone-sirop');
-    const show      = choix.sucre === 'oui';
-    if (zoneQte)   zoneQte.style.display   = show ? 'block' : 'none';
-    if (zoneSirop) zoneSirop.style.display = show ? 'block' : 'none';
-
-    ['0_5','1','2','3'].forEach(v => setActif('opt-cube-' + v, false));
-    if (choix.qteSucre) setActif('opt-cube-' + choix.qteSucre.replace('.', '_'), true);
-
-    setActif('opt-sirop-sans-sirop',  choix.sirop === 'non' && !choix.typeSirop);
-    setActif('opt-sirop-grenadine',   choix.typeSirop === 'grenadine');
-    setActif('opt-sirop-menthe',      choix.typeSirop === 'menthe');
-  }
-
-  // Attacher les handlers via cloneNode pour éviter les doublons
-  function reAttacher(id, handler) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const clone = el.cloneNode(true);
-    el.parentNode.replaceChild(clone, el);
-    document.getElementById(id).addEventListener('click', handler);
-  }
-
-  reAttacher('opt-sans-sucre', () => {
-    choix = { sucre: 'non', qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
-    rendreBtns();
-  });
-  reAttacher('opt-avec-sucre', () => {
-    choix.sucre = 'oui'; choix.saccharine = false;
-    if (!choix.qteSucre) choix.qteSucre = '1';
-    if (!choix.sirop) choix.sirop = 'non';
-    rendreBtns();
-  });
-  reAttacher('opt-saccharine', () => {
-    choix = { sucre: 'saccharine', qteSucre: null, sirop: null, typeSirop: null, saccharine: true };
-    rendreBtns();
-  });
-
-  ['0.5','1','2','3'].forEach(v => {
-    reAttacher('opt-cube-' + v.replace('.', '_'), () => {
-      choix.qteSucre = v; rendreBtns();
-    });
-  });
-
-  reAttacher('opt-sirop-sans-sirop',  () => { choix.sirop = 'non'; choix.typeSirop = null; rendreBtns(); });
-  reAttacher('opt-sirop-grenadine',   () => { choix.sirop = 'oui'; choix.typeSirop = 'grenadine'; rendreBtns(); });
-  reAttacher('opt-sirop-menthe',      () => { choix.sirop = 'oui'; choix.typeSirop = 'menthe'; rendreBtns(); });
-
-  reAttacher('opt-boisson-confirmer', () => {
-    optionsPanier[produitId] = { ...choix };
-    panier[produitId] = (panier[produitId] || 0) + 1;
-    const q = document.getElementById('qte-' + produitId);
-    const c = document.getElementById('item-' + produitId);
-    if (q) q.textContent = panier[produitId];
-    if (c) c.classList.add('selectionne');
-    mettreAJourTotal();
-    popup.classList.remove('ouvert');
-    afficherBadgeOptions(produitId, choix);
-  };
-
-  // Bouton annuler
-  document.getElementById('opt-boisson-annuler').onclick = () => {
-    popup.classList.remove('ouvert');
-  };
-
-  rendreBtns();
-  popup.classList.add('ouvert');
-}
-
-function afficherBadgeOptions(id, choix) {
-  const card = document.getElementById(`item-${id}`);
-  if (!card) return;
-  let badge = card.querySelector('.badge-options');
-  if (!badge) {
-    badge = document.createElement('div');
-    badge.className = 'badge-options';
-    card.querySelector('.produit-info').appendChild(badge);
-  }
-  const parts = [];
-  if (choix.sucre === 'non')       parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
-  if (choix.sucre === 'oui')       parts.push(`${choix.qteSucre} sucre${choix.qteSucre > 1 ? 's' : ''}`);
-  if (choix.saccharine)            parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
-  if (choix.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'شراب رمان' : 'Grenadine');
-  if (choix.typeSirop === 'menthe')   parts.push(langue === 'ar' ? 'شراب نعنع' : 'Menthe');
-  badge.textContent = parts.join(' · ');
-}
-
 
 function mettreAJourTotal() {
   let total = 0;
   Object.entries(panier).forEach(([id, qte]) => {
-    if (qte > 0 && produits[id])
-      total += parseFloat(produits[id].prix||0) * qte;
+    if (qte > 0 && produits[id]) total += parseFloat(produits[id].prix||0) * qte;
   });
-  document.querySelectorAll('.valeur-total').forEach(el => {
-    el.textContent = total.toFixed(2) + ' ' + t('dh');
+  document.querySelectorAll('.valeur-total').forEach(e => {
+    e.textContent = total.toFixed(2) + ' ' + t('dh');
   });
   return total;
 }
@@ -779,7 +695,7 @@ function modifierPersonnes(delta) {
   document.getElementById('nb-personnes').textContent = nbPersonnes;
   let ic = '';
   for (let i = 0; i < Math.min(nbPersonnes,10); i++) ic += '👤';
-  if (nbPersonnes > 10) ic += ` +${nbPersonnes-10}`;
+  if (nbPersonnes > 10) ic += ' +' + (nbPersonnes-10);
   document.getElementById('icones-personnes').textContent = ic;
 }
 
@@ -788,129 +704,124 @@ function modifierPersonnes(delta) {
 // ════════════════════════════════════════════════════════════
 function afficherRecap() {
   const hasItems = Object.values(panier).some(q => q > 0);
-  if (!hasItems) { afficherToast(t('selectionner'), '#C0392B'); return; }
-  const container = document.getElementById('liste-recap');
-  container.innerHTML = '';
+  if (!hasItems) { toast(t('selectionner'), '#C0392B'); return; }
+  const c = document.getElementById('liste-recap');
+  c.innerHTML = '';
   let total = 0;
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      const p   = produits[id];
+      const p = produits[id];
       const prix = parseFloat(p.prix||0);
-      const st  = prix * qte;
+      const st = prix * qte;
       total += st;
+      const opts = optionsPanier[id];
+      const optsStr = opts ? resumerOptions(opts) : '';
       const el = document.createElement('div');
       el.className = 'recap-item';
       el.innerHTML = `
         <div>
           <div class="recap-nom">${p.icone||'☕'} ${nomProduit(p)}</div>
-          ${optionsPanier[id] ? `<div class="recap-options">${resumerOptions(optionsPanier[id])}</div>` : ''}
+          ${optsStr ? '<div class="recap-options">' + optsStr + '</div>' : ''}
           <div class="recap-detail">x${qte} × ${prix.toFixed(2)} ${t('dh')}</div>
         </div>
         <div class="recap-prix">${st.toFixed(2)} ${t('dh')}</div>`;
-      container.appendChild(el);
+      c.appendChild(el);
     }
   });
-  document.querySelectorAll('.valeur-total').forEach(el => {
-    el.textContent = total.toFixed(2) + ' ' + t('dh');
+  document.querySelectorAll('.valeur-total').forEach(e => {
+    e.textContent = total.toFixed(2) + ' ' + t('dh');
   });
   afficherEcran('ecran-recap');
 }
 
+function resumerOptions(o) {
+  if (!o) return '';
+  const p = [];
+  if (o.sucre === 'non')           p.push(langue==='ar' ? 'بدون سكر' : 'Sans sucre');
+  if (o.sucre === 'oui' && o.qteSucre) p.push(o.qteSucre + ' cube' + (o.qteSucre > 1 ? 's' : ''));
+  if (o.saccharine)                p.push('Saccharine');
+  if (o.typeSirop === 'grenadine') p.push('Grenadine 🍓');
+  if (o.typeSirop === 'menthe')    p.push('Menthe 🌿');
+  return p.join(' · ');
+}
+
 // ════════════════════════════════════════════════════════════
-//  CONFIRMER COMMANDE
+//  CONFIRMER COMMANDE → FIREBASE
 // ════════════════════════════════════════════════════════════
 function confirmerCommande() {
   commandeRef = Math.floor(100000 + Math.random()*900000).toString();
   let total = 0;
-  const pc  = {};
+  const pc = {};
   Object.entries(panier).forEach(([id, qte]) => {
     if (qte > 0 && produits[id]) {
-      const p   = produits[id];
+      const p = produits[id];
       const prix = parseFloat(p.prix||0);
       total += prix * qte;
-      const opts = optionsPanier[id] || null;
-      pc[id] = { nom: p.nom, qte, prix, ...(opts ? { options: opts } : {}) };
+      pc[id] = { nom: p.nom, qte, prix, ...(optionsPanier[id] ? { options: optionsPanier[id] } : {}) };
     }
   });
   const now   = new Date();
   const heure = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
   const date  = now.toLocaleDateString('fr-FR');
-
-  db.ref(`commandes/${commandeRef}`)
+  db.ref('commandes/' + commandeRef)
     .set({ ref:commandeRef, table:numeroTable, nb_personnes:nbPersonnes,
-           produits:pc, total:parseFloat(total.toFixed(2)),
-           heure, date, statut:'en_attente', appel_serveur:false })
-    .then(() => db.ref(`tables/${numeroTable}/statut`).set('en_attente'))
+           produits:pc, total:parseFloat(total.toFixed(2)), heure, date,
+           statut:'en_attente', appel_serveur:false })
+    .then(() => db.ref('tables/' + numeroTable + '/statut').set('en_attente'))
     .then(() => {
-      document.getElementById('ref-affichee').textContent = commandeRef;
+      const r = document.getElementById('ref-affichee');
+      if (r) r.textContent = commandeRef;
       afficherEcran('ecran-attente');
       ecouterStatutCommande();
     })
-    .catch(err => afficherToast(t('erreur') + err.message, '#C0392B'));
+    .catch(err => toast(t('erreur') + err.message, '#C0392B'));
 }
 
 // ════════════════════════════════════════════════════════════
-//  ÉCOUTER STATUT + SONNERIE AUTO
+//  ÉCOUTER STATUT
 // ════════════════════════════════════════════════════════════
 function ecouterStatutCommande() {
   if (ecouteurCommande)
-    db.ref(`commandes/${commandeRef}/statut`).off('value', ecouteurCommande);
-
-  ecouteurCommande = db.ref(`commandes/${commandeRef}/statut`)
+    db.ref('commandes/' + commandeRef + '/statut').off('value', ecouteurCommande);
+  ecouteurCommande = db.ref('commandes/' + commandeRef + '/statut')
     .on('value', (snap) => {
       const s = snap.val();
-      if (s === 'servie') {
-        jouerSonnerie('servie');  // 🔔 Sonnerie quand commande servie
-        afficherEcran('ecran-servie');
-      } else if (s === 'demande_paiement') {
-        afficherEcran('ecran-paiement');
-      } else if (s === 'payee') {
-        jouerSonnerie('paiement'); // 🔔 Sonnerie paiement confirmé
-        libererTable();
-        afficherEcran('ecran-merci');
-        setTimeout(recommencer, 5000);
-      }
+      if (s === 'servie')           { jouerSonnerie('servie');   afficherEcran('ecran-servie'); }
+      else if (s === 'demande_paiement')               { afficherEcran('ecran-paiement'); }
+      else if (s === 'payee')       { jouerSonnerie('paiement'); libererTable(); afficherEcran('ecran-merci'); setTimeout(recommencer, 5000); }
     });
 }
 
 function demanderPaiement() {
   jouerSonnerie('paiement');
-  db.ref(`commandes/${commandeRef}`)
-    .update({ statut:'demande_paiement', demande_paiement:true })
-    .then(() => db.ref(`tables/${numeroTable}/statut`).set('demande_paiement'))
+  db.ref('commandes/' + commandeRef).update({ statut:'demande_paiement', demande_paiement:true })
+    .then(() => db.ref('tables/' + numeroTable + '/statut').set('demande_paiement'))
     .then(() => afficherEcran('ecran-paiement'))
-    .catch(err => afficherToast(t('erreur') + err.message, '#C0392B'));
+    .catch(err => toast(t('erreur') + err.message, '#C0392B'));
 }
 
+// ════════════════════════════════════════════════════════════
+//  RESET
+// ════════════════════════════════════════════════════════════
 function nouvelleCommande() {
-  commandeRef = null; nbPersonnes = 1; panier = {};
-  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
-  document.getElementById('nb-personnes').textContent     = '1';
-  document.getElementById('icones-personnes').textContent = '👤';
+  commandeRef = null; nbPersonnes = 1; panier = {}; optionsPanier = {};
+  const n = document.getElementById('nb-personnes'); if (n) n.textContent = '1';
+  const i = document.getElementById('icones-personnes'); if (i) i.textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
   afficherEcran('ecran-personnes');
 }
 
-function resumerOptions(opts) {
-  if (!opts) return '';
-  const parts = [];
-  if (opts.sucre === 'non')          parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
-  if (opts.sucre === 'oui')          parts.push(`${opts.qteSucre} cube${opts.qteSucre > 1 ? 's' : ''}`);
-  if (opts.saccharine)               parts.push(langue === 'ar' ? 'سكرين' : 'Saccharine');
-  if (opts.typeSirop === 'grenadine') parts.push(langue === 'ar' ? 'Grenadine 🍹' : 'Grenadine 🍹');
-  if (opts.typeSirop === 'menthe')    parts.push(langue === 'ar' ? 'Menthe 🌿' : 'Menthe 🌿');
-  return parts.join(' · ');
-}
-
 function recommencer() {
-  commandeRef = null; nbPersonnes = 1; panier = {};
-  Object.keys(optionsPanier).forEach(k => delete optionsPanier[k]);
-  document.getElementById('nb-personnes').textContent     = '1';
-  document.getElementById('icones-personnes').textContent = '👤';
+  commandeRef = null; nbPersonnes = 1; panier = {}; optionsPanier = {};
+  const n = document.getElementById('nb-personnes'); if (n) n.textContent = '1';
+  const i = document.getElementById('icones-personnes'); if (i) i.textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
   afficherEcran('ecran-accueil');
 }
 
+// ════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════
 function afficherEcran(id) {
   document.querySelectorAll('.ecran').forEach(e => e.classList.remove('actif'));
   const el = document.getElementById(id);
