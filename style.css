@@ -712,49 +712,6 @@ body {
 }
 
 /* ════════════════════════════════════════
-   POPUPS OVERLAY
-   ════════════════════════════════════════ */
-.popup-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: none;              /* caché par défaut */
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 99999;
-}
-
-.popup-overlay.ouvert {
-  display: flex;              /* visible seulement quand JS ajoute .ouvert */
-}
-
-.popup-sheet {
-  width: 100%;
-  max-width: 480px;
-  background: var(--blanc);
-  border-radius: 24px 24px 0 0;
-  padding: 18px 16px 24px;
-  box-shadow: 0 -8px 30px rgba(0,0,0,0.18);
-  animation: popupUp 0.22s ease;
-}
-
-.popup-handle {
-  width: 42px;
-  height: 5px;
-  border-radius: 999px;
-  background: #ddd;
-  margin: 0 auto 14px;
-}
-
-@keyframes popupUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
-}
-/* ════════════════════════════════════════
    POPUP OPTIONS BOISSON
    ════════════════════════════════════════ */
 .opt-boisson-titre {
@@ -840,6 +797,30 @@ body {
 }
 
 .opt-actions .popup-btn-fermer { flex: 0.6; }
+
+/* ── Bouton Annuler options boisson — style distinct ── */
+#btn-opt-annuler {
+  flex: 0.6;
+  padding: 14px;
+  border: 2px solid #C0392B;
+  border-radius: 12px;
+  background: transparent;
+  color: #C0392B;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+#btn-opt-annuler::before { content: '✕'; font-size: 1rem; }
+#btn-opt-annuler:active {
+  background: #C0392B;
+  color: white;
+  transform: scale(0.97);
+}
 
 /* Badge options sur la carte produit */
 .badge-options {
