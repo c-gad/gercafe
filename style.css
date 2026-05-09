@@ -29,6 +29,7 @@ body {
   max-width: 480px;
   margin: 0 auto;
   -webkit-font-smoothing: antialiased;
+   padding-top: env(safe-area-inset-top);
 }
 
 /* ════════════════════════════════════════
@@ -88,7 +89,7 @@ body {
    ════════════════════════════════════════ */
 .header-cafe {
   background: linear-gradient(135deg, var(--espresso), var(--arabica), #4A2515);
-  padding: 44px 24px 36px;
+  padding: 90px 24px 36px;
   text-align: center;
   border-radius: 0 0 32px 32px;
   position: relative;
@@ -650,10 +651,10 @@ body {
    BOUTON LANGUE FIXE
    ════════════════════════════════════════ */
 .btn-langue-fixe {
-  position: fixed;
-  top: 14px;
-  left: 14px;
-  z-index: 9999;
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 20;
   background: linear-gradient(135deg, var(--robusta), var(--espresso));
   color: var(--creme);
   border: none;
@@ -663,8 +664,6 @@ body {
   font-weight: 800;
   cursor: pointer;
   box-shadow: 0 3px 12px rgba(28,10,0,0.3);
-  letter-spacing: 0.5px;
-  transition: transform 0.15s;
 }
 
 .btn-langue-fixe:active { transform: scale(0.95); }
@@ -672,7 +671,7 @@ body {
 /* RTL — inverser le bouton langue à droite */
 [dir="rtl"] .btn-langue-fixe {
   left: auto;
-  right: 14px;
+  right: 16px;
 }
 
 /* ════════════════════════════════════════
