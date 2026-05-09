@@ -9,6 +9,28 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+
+  <style>
+    /* CSS CRITIQUE — Empêche l'affichage des popups avant chargement */
+    .popup-overlay { display: none !important; }
+    .popup-overlay.ouvert { display: flex !important; }
+    .ecran { display: none !important; }
+    .ecran.actif { display: flex !important; }
+    
+    /* Opt section — caché par défaut */
+    #zone-qte-sucre { display: none !important; }
+    #zone-sirop { display: none !important; }
+    
+    /* Boisson entête style */
+    .opt-boisson-entete {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #F0DDB8;
+    }
+  </style>
 </head>
 <body>
 
