@@ -757,7 +757,7 @@ function confirmerCommande() {
       const p = produits[id];
       const prix = parseFloat(p.prix||0);
       total += prix * qte;
-      pc[id] = { nom: p.nom, qte, prix, ...(optionsPanier[id] ? { options: optionsPanier[id] } : {}) };
+      pc[id] = { nom: p.nom, ...(p.nom_ar ? { nom_ar: p.nom_ar } : {}), qte, prix, ...(optionsPanier[id] ? { options: optionsPanier[id] } : {}) };
     }
   });
   const now   = new Date();
