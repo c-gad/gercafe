@@ -962,3 +962,198 @@ body {
 /* RTL support */
 [dir="rtl"] .opt-groupe { flex-direction: row-reverse; }
 [dir="rtl"] .opt-btn    { direction: rtl; }
+
+/* ════════════════════════════════════════
+   POPUP OPTIONS BOISSON — NOUVEAU STYLE
+   ════════════════════════════════════════ */
+
+.popup-boisson-sheet {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* En-tête produit */
+.bois-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 1.5px solid var(--creme);
+  margin-bottom: 4px;
+}
+
+.bois-emoji { font-size: 2.8rem; flex-shrink: 0; }
+
+.bois-nom {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--arabica);
+  font-family: Georgia, serif;
+}
+
+.bois-sous {
+  font-size: 0.78rem;
+  color: var(--moka);
+  margin-top: 2px;
+}
+
+/* Sections */
+.bois-section {
+  margin-top: 16px;
+}
+
+.bois-section-titre {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--robusta);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.bois-zone-cachee { display: none; }
+
+/* Boutons choix principaux */
+.bois-choix {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.bois-btn {
+  flex: 1;
+  min-width: 88px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  background: var(--mousse);
+  border: 2px solid var(--creme);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bois-btn:active { transform: scale(0.96); }
+
+.bois-btn.actif {
+  background: rgba(107,58,42,0.1);
+  border-color: var(--robusta);
+  box-shadow: 0 3px 10px rgba(107,58,42,0.2);
+}
+
+.bois-btn-emoji { font-size: 1.7rem; line-height: 1; }
+
+.bois-btn-lbl {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--arabica);
+  text-align: center;
+}
+
+.bois-btn.actif .bois-btn-lbl { color: var(--robusta); }
+
+/* Boutons quantité morceaux */
+.bois-choix-qte {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.bois-btn-qte {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 12px 6px;
+  background: var(--mousse);
+  border: 2px solid var(--creme);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bois-btn-qte:active { transform: scale(0.95); }
+
+.bois-btn-qte.actif {
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  border-color: var(--robusta);
+  box-shadow: 0 4px 12px rgba(107,58,42,0.35);
+}
+
+.bois-qte-chiffre {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--arabica);
+  font-family: Georgia, serif;
+  line-height: 1;
+}
+
+.bois-btn-qte.actif .bois-qte-chiffre { color: white; }
+
+.bois-qte-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--moka);
+  text-align: center;
+}
+
+.bois-btn-qte.actif .bois-qte-label { color: rgba(255,255,255,0.85); }
+
+/* Résumé des choix */
+.bois-resume-box {
+  margin-top: 14px;
+  background: rgba(107,58,42,0.07);
+  border: 1.5px solid rgba(107,58,42,0.2);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--robusta);
+  text-align: center;
+}
+
+/* Actions */
+.bois-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.bois-btn-annuler {
+  flex: 0.5;
+  padding: 14px;
+  border: 2px solid var(--danger);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.bois-btn-annuler:active {
+  background: var(--danger);
+  color: white;
+}
+
+.bois-btn-confirmer {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--robusta), var(--espresso));
+  color: var(--creme);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(107,58,42,0.4);
+  transition: all 0.15s;
+}
+
+.bois-btn-confirmer:active { transform: scale(0.98); }
+
+[dir="rtl"] .bois-header { flex-direction: row-reverse; }
+[dir="rtl"] .bois-choix  { flex-direction: row-reverse; }
