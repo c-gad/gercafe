@@ -9,28 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Naskh+Arabic:wght@400;600;700;800&display=swap" rel="stylesheet">
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-
-  <style>
-    /* CSS CRITIQUE — Empêche l'affichage des popups avant chargement */
-    .popup-overlay { display: none !important; }
-    .popup-overlay.ouvert { display: flex !important; }
-    .ecran { display: none !important; }
-    .ecran.actif { display: flex !important; }
-    
-    /* Opt section — caché par défaut */
-    #zone-qte-sucre { display: none !important; }
-    #zone-sirop { display: none !important; }
-    
-    /* Boisson entête style */
-    .opt-boisson-entete {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 16px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #F0DDB8;
-    }
-  </style>
 </head>
 <body>
 
@@ -82,75 +60,99 @@
   </div>
 
   <!-- ══════════════════════════════════
-       POPUP OPTIONS BOISSON
-       IDs DOIVENT CORRESPONDRE EXACTEMENT À app.js
+       POPUP OPTIONS BOISSON — REFONTE
   ══════════════════════════════════ -->
-  <div id="popup-options-boisson" class="popup-overlay" onclick="if(event.target===this)this.classList.remove('ouvert')">
-    <div class="popup-sheet">
+  <div id="popup-options-boisson" class="popup-overlay" onclick="if(event.target===this)fermerOptionsBoisson()">
+    <div class="popup-sheet popup-boisson-sheet">
       <div class="popup-handle"></div>
 
-      <div class="opt-boisson-entete">
-        <span style="font-size:2rem">☕</span>
+      <!-- En-tête produit -->
+      <div class="bois-header">
+        <span class="bois-emoji" id="opt-boisson-emoji">☕</span>
         <div>
-          <div class="opt-boisson-titre" id="opt-boisson-nom">Café</div>
-          <div class="opt-boisson-sous" id="opt-bois-titre">Personnalisez votre boisson</div>
+          <div class="bois-nom" id="opt-boisson-nom">Café</div>
+          <div class="bois-sous">Personnalisez votre boisson</div>
         </div>
       </div>
 
-      <!-- SUCRE -->
-      <div class="opt-section-titre" id="lbl-opt-sucre">🍬 Sucre</div>
-      <div class="opt-groupe">
-        <button id="opt-btn-sans-sucre" class="opt-btn">
-          <span class="opt-btn-icone">🚫</span>
-          <span id="lbl-sans-sucre">Sans sucre</span>
-        </button>
-        <button id="opt-btn-avec-sucre" class="opt-btn">
-          <span class="opt-btn-icone">🧊</span>
-          <span id="lbl-avec-sucre">Avec sucre</span>
-        </button>
-        <button id="opt-btn-saccharine" class="opt-btn">
-          <span class="opt-btn-icone">💊</span>
-          <span id="lbl-saccharine">Saccharine</span>
-        </button>
-      </div>
+      <!-- ═══ ÉTAPE 1 : SUCRE ═══ -->
+      <div class="bois-section">
+        <div class="bois-section-titre">🍬 Sucre</div>
+        <div class="bois-choix">
 
-      <!-- QUANTITÉ CUBES -->
-      <div id="zone-qte-sucre" style="display:none">
-        <div class="opt-section-titre" id="lbl-qte-sucre">Quantité</div>
-        <div class="opt-groupe">
-          <button id="opt-cube-05" class="opt-btn opt-btn-sm">½ cube</button>
-          <button id="opt-cube-1"  class="opt-btn opt-btn-sm">1 cube</button>
-          <button id="opt-cube-2"  class="opt-btn opt-btn-sm">2 cubes</button>
-          <button id="opt-cube-3"  class="opt-btn opt-btn-sm">3 cubes</button>
+          <!-- Sans sucre -->
+          <button id="bois-sans-sucre" class="bois-btn" onclick="choisirSucre('non')">
+            <span class="bois-btn-emoji">🚫</span>
+            <span class="bois-btn-lbl">Sans sucre</span>
+          </button>
+
+          <!-- Avec sucre → morceaux -->
+          <button id="bois-avec-sucre" class="bois-btn" onclick="choisirSucre('oui')">
+            <span class="bois-btn-emoji">🍬</span>
+            <span class="bois-btn-lbl">Avec sucre</span>
+          </button>
+
+          <!-- Saccharine -->
+          <button id="bois-saccharine" class="bois-btn" onclick="choisirSucre('saccharine')">
+            <span class="bois-btn-emoji">💊</span>
+            <span class="bois-btn-lbl">Saccharine</span>
+          </button>
+
         </div>
       </div>
 
-      <!-- SIROP -->
-      <div id="zone-sirop" style="display:none">
-        <div class="opt-section-titre" id="lbl-opt-sirop">🍹 Sirop</div>
-        <div class="opt-groupe">
-          <button id="opt-sirop-non" class="opt-btn">
-            <span class="opt-btn-icone">🚫</span>
-            <span id="lbl-sans-sirop">Sans sirop</span>
+      <!-- ═══ MORCEAUX (visible si "Avec sucre") ═══ -->
+      <div id="bois-zone-morceaux" class="bois-section bois-zone-cachee">
+        <div class="bois-section-titre">🧊 Nombre de morceaux</div>
+        <div class="bois-choix bois-choix-qte">
+          <button id="bois-cube-05" class="bois-btn-qte" onclick="choisirQte('0.5')">
+            <span class="bois-qte-chiffre">½</span>
+            <span class="bois-qte-label">morceau</span>
           </button>
-          <button id="opt-sirop-grenadine" class="opt-btn">
-            <span class="opt-btn-icone">🍓</span>
-            <span id="lbl-grenadine">Grenadine</span>
+          <button id="bois-cube-1" class="bois-btn-qte" onclick="choisirQte('1')">
+            <span class="bois-qte-chiffre">1</span>
+            <span class="bois-qte-label">morceau</span>
           </button>
-          <button id="opt-sirop-menthe" class="opt-btn">
-            <span class="opt-btn-icone">🌿</span>
-            <span id="lbl-menthe">Menthe</span>
+          <button id="bois-cube-2" class="bois-btn-qte" onclick="choisirQte('2')">
+            <span class="bois-qte-chiffre">2</span>
+            <span class="bois-qte-label">morceaux</span>
+          </button>
+          <button id="bois-cube-3" class="bois-btn-qte" onclick="choisirQte('3')">
+            <span class="bois-qte-chiffre">3</span>
+            <span class="bois-qte-label">morceaux</span>
           </button>
         </div>
       </div>
 
-      <!-- ACTIONS -->
-      <div class="opt-actions">
-        <button id="btn-opt-annuler" class="popup-btn-fermer">
-          <span id="opt-annuler">Annuler</span>
-        </button>
-        <button id="btn-opt-confirmer" class="btn-confirmer" style="flex:1;padding:14px">
-          <span id="btn-opt-confirmer-lbl">Ajouter ✓</span>
+      <!-- ═══ SIROP (visible si "Avec sucre") ═══ -->
+      <div id="bois-zone-sirop" class="bois-section bois-zone-cachee">
+        <div class="bois-section-titre">🍹 Sirop</div>
+        <div class="bois-choix">
+          <button id="bois-sirop-non" class="bois-btn" onclick="choisirSirop('non')">
+            <span class="bois-btn-emoji">🚫</span>
+            <span class="bois-btn-lbl">Sans sirop</span>
+          </button>
+          <button id="bois-sirop-grenadine" class="bois-btn" onclick="choisirSirop('grenadine')">
+            <span class="bois-btn-emoji">🍓</span>
+            <span class="bois-btn-lbl">Grenadine</span>
+          </button>
+          <button id="bois-sirop-menthe" class="bois-btn" onclick="choisirSirop('menthe')">
+            <span class="bois-btn-emoji">🌿</span>
+            <span class="bois-btn-lbl">Menthe</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ═══ RÉSUMÉ DES CHOIX ═══ -->
+      <div id="bois-resume" class="bois-resume-box" style="display:none">
+        <span id="bois-resume-txt"></span>
+      </div>
+
+      <!-- ═══ ACTIONS ═══ -->
+      <div class="bois-actions">
+        <button class="bois-btn-annuler" onclick="fermerOptionsBoisson()">✕ Annuler</button>
+        <button id="bois-btn-confirmer" class="bois-btn-confirmer" onclick="confirmerOptionsBoisson()">
+          Ajouter ✓
         </button>
       </div>
     </div>
