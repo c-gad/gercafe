@@ -369,74 +369,6 @@ function envoyerAppel(type) {
 // ════════════════════════════════════════════════════════════
 //  POPUP OPTIONS BOISSON
 // ════════════════════════════════════════════════════════════
-function ouvrirPopupOptions(produitId, produit) {
-  const popup = document.getElementById('popup-options-boisson');
-  if (!popup) {
-    // Popup absent → ajouter directement sans options
-    _confirmerAjoutSansOptions(produitId);
-    return;
-  }
-
-  const nomEl = document.getElementById('opt-boisson-nom');
-  if (nomEl) nomEl.textContent = nomProduit(produit);
-
-  let choix = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
-
-  function maj() {
-    const actif = (id, cond) => {
-      const el = document.getElementById(id);
-      if (el) el.classList.toggle('actif', !!cond);
-    };
-    actif('opt-btn-sans-sucre', choix.sucre === 'non');
-    actif('opt-btn-avec-sucre', choix.sucre === 'oui');
-    actif('opt-btn-saccharine', !!choix.saccharine);
-
-    const show = choix.sucre === 'oui';
-    ['zone-qte-sucre', 'zone-sirop'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = show ? 'block' : 'none';
-    });
-
-    ['05','1','2','3'].forEach(v => actif('opt-cube-' + v, false));
-    if (choix.qteSucre) actif('opt-cube-' + choix.qteSucre.replace('.',''), choix.qteSucre);
-
-    actif('opt-sirop-non',       choix.sirop === 'non' && !choix.typeSirop);
-    actif('opt-sirop-grenadine', choix.typeSirop === 'grenadine');
-    actif('opt-sirop-menthe',    choix.typeSirop === 'menthe');
-  }
-
-  function btn(id, fn) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    const clone = el.cloneNode(true);
-    el.parentNode.replaceChild(clone, el);
-    document.getElementById(id).addEventListener('click', fn);
-  }
-
-  btn('opt-btn-sans-sucre', () => { choix = { sucre:'non', qteSucre:null, sirop:null, typeSirop:null, saccharine:false }; maj(); });
-  btn('opt-btn-avec-sucre', () => { choix.sucre = 'oui'; choix.saccharine = false; if (!choix.qteSucre) choix.qteSucre = '1'; if (!choix.sirop) choix.sirop = 'non'; maj(); });
-  btn('opt-btn-saccharine', () => { choix = { sucre:'saccharine', qteSucre:null, sirop:null, typeSirop:null, saccharine:true }; maj(); });
-  btn('opt-cube-05', () => { choix.qteSucre = '0.5'; maj(); });
-  btn('opt-cube-1',  () => { choix.qteSucre = '1';   maj(); });
-  btn('opt-cube-2',  () => { choix.qteSucre = '2';   maj(); });
-  btn('opt-cube-3',  () => { choix.qteSucre = '3';   maj(); });
-  btn('opt-sirop-non',       () => { choix.sirop = 'non'; choix.typeSirop = null;         maj(); });
-  btn('opt-sirop-grenadine', () => { choix.sirop = 'oui'; choix.typeSirop = 'grenadine'; maj(); });
-  btn('opt-sirop-menthe',    () => { choix.sirop = 'oui'; choix.typeSirop = 'menthe';    maj(); });
-
-  btn('btn-opt-annuler', () => popup.classList.remove('ouvert'));
-
-  btn('btn-opt-confirmer', () => {
-    optionsPanier[produitId] = { ...choix };
-    _confirmerAjoutSansOptions(produitId);
-    afficherBadgeOptions(produitId, choix);
-    popup.classList.remove('ouvert');
-  });
-
-  maj();
-  popup.classList.add('ouvert');
-}
-
 function _confirmerAjoutSansOptions(produitId) {
   panier[produitId] = (panier[produitId] || 0) + 1;
   const q = document.getElementById('qte-' + produitId);
@@ -658,6 +590,169 @@ function construireListeCommande() {
 // ════════════════════════════════════════════════════════════
 //  PANIER
 // ════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════
+//  POPUP OPTIONS BOISSON — LOGIQUE COMPLÈTE
+// ════════════════════════════════════════════════════════════
+let _optProduitId  = null;
+let _optProduit    = null;
+let _optChoix      = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+
+function ouvrirPopupOptions(produitId, produit) {
+  const popup = document.getElementById('popup-options-boisson');
+  if (!popup) {
+    // Pas de popup → ajouter directement
+    _ajouterProduitSansOptions(produitId);
+    return;
+  }
+
+  _optProduitId = produitId;
+  _optProduit   = produit;
+  _optChoix     = { sucre: null, qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+
+  // Titre
+  const nomEl  = document.getElementById('opt-boisson-nom');
+  const emojEl = document.getElementById('opt-boisson-emoji');
+  if (nomEl)  nomEl.textContent  = nomProduit(produit);
+  if (emojEl) emojEl.textContent = produit.icone || '☕';
+
+  _majPopupBoisson();
+  popup.classList.add('ouvert');
+}
+
+function fermerOptionsBoisson() {
+  const popup = document.getElementById('popup-options-boisson');
+  if (popup) popup.classList.remove('ouvert');
+}
+
+function choisirSucre(choix) {
+  if (choix === 'non') {
+    _optChoix = { sucre: 'non', qteSucre: null, sirop: null, typeSirop: null, saccharine: false };
+  } else if (choix === 'oui') {
+    _optChoix.sucre = 'oui';
+    _optChoix.saccharine = false;
+    if (!_optChoix.qteSucre) _optChoix.qteSucre = '1';
+    if (!_optChoix.sirop)    _optChoix.sirop    = 'non';
+  } else if (choix === 'saccharine') {
+    _optChoix = { sucre: 'saccharine', qteSucre: null, sirop: null, typeSirop: null, saccharine: true };
+  }
+  _majPopupBoisson();
+}
+
+function choisirQte(qte) {
+  _optChoix.qteSucre = qte;
+  _majPopupBoisson();
+}
+
+function choisirSirop(type) {
+  if (type === 'non') {
+    _optChoix.sirop    = 'non';
+    _optChoix.typeSirop = null;
+  } else {
+    _optChoix.sirop    = 'oui';
+    _optChoix.typeSirop = type;
+  }
+  _majPopupBoisson();
+}
+
+function _majPopupBoisson() {
+  const c = _optChoix;
+
+  // Boutons sucre
+  _boisActif('bois-sans-sucre',  c.sucre === 'non');
+  _boisActif('bois-avec-sucre',  c.sucre === 'oui');
+  _boisActif('bois-saccharine',  c.saccharine === true);
+
+  // Zones morceaux + sirop
+  const showSucre = c.sucre === 'oui';
+  _boisShow('bois-zone-morceaux', showSucre);
+  _boisShow('bois-zone-sirop',    showSucre);
+
+  // Boutons quantité
+  ['05','1','2','3'].forEach(v => {
+    const id  = 'bois-cube-' + v;
+    const val = v === '05' ? '0.5' : v;
+    _boisActif(id, c.qteSucre === val);
+  });
+
+  // Boutons sirop
+  _boisActif('bois-sirop-non',       c.sirop === 'non' && !c.typeSirop);
+  _boisActif('bois-sirop-grenadine', c.typeSirop === 'grenadine');
+  _boisActif('bois-sirop-menthe',    c.typeSirop === 'menthe');
+
+  // Résumé
+  const resume = _resumerChoixBoisson(c);
+  const rezEl  = document.getElementById('bois-resume');
+  const rezTxt = document.getElementById('bois-resume-txt');
+  if (rezEl && rezTxt) {
+    if (resume) {
+      rezTxt.textContent  = '☕ ' + resume;
+      rezEl.style.display = 'block';
+    } else {
+      rezEl.style.display = 'none';
+    }
+  }
+}
+
+function _boisActif(id, actif) {
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('actif', !!actif);
+}
+
+function _boisShow(id, show) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = show ? 'block' : 'none';
+}
+
+function _resumerChoixBoisson(c) {
+  const parts = [];
+  if (!c.sucre) return '';
+  if (c.sucre === 'non')       parts.push(langue === 'ar' ? 'بدون سكر' : 'Sans sucre');
+  if (c.saccharine)            parts.push(langue === 'ar' ? 'سكرين 💊' : 'Saccharine 💊');
+  if (c.sucre === 'oui' && c.qteSucre) {
+    const n = parseFloat(c.qteSucre);
+    parts.push(c.qteSucre + (langue === 'ar' ? ' قطعة' : (n > 1 ? ' morceaux' : ' morceau')));
+  }
+  if (c.typeSirop === 'grenadine') parts.push('Grenadine 🍓');
+  if (c.typeSirop === 'menthe')    parts.push('Menthe 🌿');
+  if (c.sirop === 'non' && c.sucre === 'oui') parts.push(langue === 'ar' ? 'بدون شراب' : 'Sans sirop');
+  return parts.join(' · ');
+}
+
+function confirmerOptionsBoisson() {
+  if (!_optChoix.sucre) {
+    // Forcer choix avant de confirmer
+    toast(langue === 'ar' ? 'اختر نوع السكر' : 'Choisissez le sucre', '#C0392B');
+    return;
+  }
+  optionsPanier[_optProduitId] = { ..._optChoix };
+  _ajouterProduitSansOptions(_optProduitId);
+  afficherBadgeOptions(_optProduitId, _optChoix);
+  fermerOptionsBoisson();
+}
+
+function _ajouterProduitSansOptions(produitId) {
+  panier[produitId] = (panier[produitId] || 0) + 1;
+  const q = document.getElementById('qte-' + produitId);
+  const c = document.getElementById('item-' + produitId);
+  if (q) q.textContent = panier[produitId];
+  if (c) c.classList.add('selectionne');
+  mettreAJourTotal();
+}
+
+function afficherBadgeOptions(id, choix) {
+  const card = document.getElementById('item-' + id);
+  if (!card) return;
+  let badge = card.querySelector('.badge-options');
+  if (!badge) {
+    badge = document.createElement('div');
+    badge.className = 'badge-options';
+    const info = card.querySelector('.produit-info');
+    if (info) info.appendChild(badge);
+  }
+  const resume = _resumerChoixBoisson(choix);
+  badge.textContent = resume ? '☕ ' + resume : '';
+}
+
 function modifierQte(id, delta) {
   const ancQte  = panier[id] || 0;
   const nvQte   = Math.max(0, ancQte + delta);
@@ -757,16 +852,19 @@ function confirmerCommande() {
       const p = produits[id];
       const prix = parseFloat(p.prix||0);
       total += prix * qte;
-      pc[id] = { nom: p.nom, ...(p.nom_ar ? { nom_ar: p.nom_ar } : {}), qte, prix, ...(optionsPanier[id] ? { options: optionsPanier[id] } : {}) };
+      pc[id] = { nom: p.nom, qte, prix, ...(optionsPanier[id] ? { options: optionsPanier[id] } : {}) };
     }
   });
   const now   = new Date();
   const heure = now.toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' });
   const date  = now.toLocaleDateString('fr-FR');
+  const timestamp = Date.now(); // ← horodatage pour tri chronologique
+
   db.ref('commandes/' + commandeRef)
     .set({ ref:commandeRef, table:numeroTable, nb_personnes:nbPersonnes,
            produits:pc, total:parseFloat(total.toFixed(2)), heure, date,
-           statut:'en_attente', appel_serveur:false })
+           statut:'en_attente', appel_serveur:false,
+           timestamp: timestamp })
     .then(() => db.ref('tables/' + numeroTable + '/statut').set('en_attente'))
     .then(() => {
       const r = document.getElementById('ref-affichee');
