@@ -504,13 +504,68 @@ function chargerProduits() {
       });
     }
     appliquerLangue();
-    afficherEcran('ecran-accueil');
     construireMenu();
     construireListeCommande();
+    // ── Restaurer la session si commande en cours ──
+    _restaurerSession();
   }, (err) => {
     clearTimeout(fallback);
     console.warn('Produits error:', err);
     appliquerLangue();
+    afficherEcran('ecran-accueil');
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  RESTAURATION DE SESSION
+//  Si le client revient → reprendre exactement où il était
+// ════════════════════════════════════════════════════════════
+function _restaurerSession() {
+  const savedRef   = localStorage.getItem('gercafe_cmd_ref');
+  const savedTable = parseInt(localStorage.getItem('gercafe_cmd_table') || '0');
+
+  // Vérifier que c'est bien la même table
+  if (!savedRef || savedTable !== numeroTable) {
+    afficherEcran('ecran-accueil');
+    return;
+  }
+
+  console.log('Restauration session commande:', savedRef);
+
+  // Vérifier le statut actuel de la commande dans Firebase
+  db.ref('commandes/' + savedRef + '/statut').once('value', (snap) => {
+    const statut = snap.val();
+
+    if (!statut || statut === 'payee') {
+      // Commande terminée → nettoyer et aller à l'accueil
+      localStorage.removeItem('gercafe_cmd_ref');
+      localStorage.removeItem('gercafe_cmd_table');
+      afficherEcran('ecran-accueil');
+      return;
+    }
+
+    // Restaurer la référence commande
+    commandeRef = savedRef;
+    const r = document.getElementById('ref-affichee');
+    if (r) r.textContent = commandeRef;
+
+    // Afficher l'écran correspondant au statut actuel
+    if (statut === 'en_attente' || statut === 'commande_en_cours') {
+      afficherEcran('ecran-attente');
+    } else if (statut === 'servie') {
+      afficherEcran('ecran-servie');
+    } else if (statut === 'demande_paiement') {
+      afficherEcran('ecran-paiement');
+    } else {
+      afficherEcran('ecran-accueil');
+      return;
+    }
+
+    // Reprendre l'écoute du statut en temps réel
+    ecouterStatutCommande();
+
+  }, (err) => {
+    console.warn('Restauration session erreur:', err);
     afficherEcran('ecran-accueil');
   });
 }
@@ -869,6 +924,9 @@ function confirmerCommande() {
     .then(() => {
       const r = document.getElementById('ref-affichee');
       if (r) r.textContent = commandeRef;
+      // ── Sauvegarder la session pour persistance ──
+      localStorage.setItem('gercafe_cmd_ref',   commandeRef);
+      localStorage.setItem('gercafe_cmd_table', String(numeroTable));
       afficherEcran('ecran-attente');
       ecouterStatutCommande();
     })
@@ -886,7 +944,15 @@ function ecouterStatutCommande() {
       const s = snap.val();
       if (s === 'servie')           { jouerSonnerie('servie');   afficherEcran('ecran-servie'); }
       else if (s === 'demande_paiement')               { afficherEcran('ecran-paiement'); }
-      else if (s === 'payee')       { jouerSonnerie('paiement'); libererTable(); afficherEcran('ecran-merci'); setTimeout(recommencer, 5000); }
+      else if (s === 'payee') {
+        jouerSonnerie('paiement');
+        libererTable();
+        // Effacer la session persistante
+        localStorage.removeItem('gercafe_cmd_ref');
+        localStorage.removeItem('gercafe_cmd_table');
+        afficherEcran('ecran-merci');
+        setTimeout(recommencer, 5000);
+      }
     });
 }
 
@@ -911,6 +977,9 @@ function nouvelleCommande() {
 
 function recommencer() {
   commandeRef = null; nbPersonnes = 1; panier = {}; optionsPanier = {};
+  // Effacer la session persistante
+  localStorage.removeItem('gercafe_cmd_ref');
+  localStorage.removeItem('gercafe_cmd_table');
   const n = document.getElementById('nb-personnes'); if (n) n.textContent = '1';
   const i = document.getElementById('icones-personnes'); if (i) i.textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
