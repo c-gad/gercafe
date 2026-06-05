@@ -920,7 +920,12 @@ function confirmerCommande() {
            produits:pc, total:parseFloat(total.toFixed(2)), heure, date,
            statut:'en_attente', appel_serveur:false,
            timestamp: timestamp })
-    .then(() => db.ref('tables/' + numeroTable + '/statut').set('en_attente'))
+    .then(() => db.ref('tables/' + numeroTable).update({
+      statut: 'en_attente',
+      appel_serveur: false,
+      type_appel: null,
+      demande_paiement: false
+    }))
     .then(() => {
       const r = document.getElementById('ref-affichee');
       if (r) r.textContent = commandeRef;
@@ -959,7 +964,11 @@ function ecouterStatutCommande() {
 function demanderPaiement() {
   jouerSonnerie('paiement');
   db.ref('commandes/' + commandeRef).update({ statut:'demande_paiement', demande_paiement:true })
-    .then(() => db.ref('tables/' + numeroTable + '/statut').set('demande_paiement'))
+    .then(() => db.ref('tables/' + numeroTable).update({
+      statut: 'demande_paiement',
+      appel_serveur: false,
+      type_appel: null
+    }))
     .then(() => afficherEcran('ecran-paiement'))
     .catch(err => toast(t('erreur') + err.message, '#C0392B'));
 }
@@ -980,6 +989,15 @@ function recommencer() {
   // Effacer la session persistante
   localStorage.removeItem('gercafe_cmd_ref');
   localStorage.removeItem('gercafe_cmd_table');
+  // Reset complet de la table dans Firebase
+  if (numeroTable) {
+    db.ref('tables/' + numeroTable).update({
+      statut: 'libre',
+      appel_serveur: false,
+      type_appel: null,
+      demande_paiement: false
+    }).catch(() => {});
+  }
   const n = document.getElementById('nb-personnes'); if (n) n.textContent = '1';
   const i = document.getElementById('icones-personnes'); if (i) i.textContent = '👤';
   construireListeCommande(); mettreAJourTotal();
