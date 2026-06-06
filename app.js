@@ -947,18 +947,37 @@ function ecouterStatutCommande() {
   ecouteurCommande = db.ref('commandes/' + commandeRef + '/statut')
     .on('value', (snap) => {
       const s = snap.val();
-      if (s === 'servie')           { jouerSonnerie('servie');   afficherEcran('ecran-servie'); }
-      else if (s === 'demande_paiement')               { afficherEcran('ecran-paiement'); }
-      else if (s === 'payee') {
+      if (s === 'servie') {
+        jouerSonnerie('servie');
+        afficherEcran('ecran-servie');
+      } else if (s === 'payee') {
         jouerSonnerie('paiement');
         libererTable();
-        // Effacer la session persistante
         localStorage.removeItem('gercafe_cmd_ref');
         localStorage.removeItem('gercafe_cmd_table');
         afficherEcran('ecran-merci');
         setTimeout(recommencer, 5000);
       }
+      // 'demande_paiement' géré par ecouterStatutTable ci-dessous
     });
+
+  // Écouter aussi tables/{n}/statut pour détecter
+  // quand le serveur confirme le paiement (tables → 'libre')
+  db.ref('tables/' + numeroTable + '/statut').on('value', (snap) => {
+    const s = snap.val();
+    if (s === 'demande_paiement') {
+      // déjà sur écran-paiement — rien à faire
+    } else if (s === 'libre' && commandeRef) {
+      // Serveur a encaissé → merci
+      jouerSonnerie('paiement');
+      libererTable();
+      localStorage.removeItem('gercafe_cmd_ref');
+      localStorage.removeItem('gercafe_cmd_table');
+      commandeRef = null;
+      afficherEcran('ecran-merci');
+      setTimeout(recommencer, 5000);
+    }
+  });
 }
 
 function demanderPaiement() {
@@ -986,10 +1005,9 @@ function nouvelleCommande() {
 
 function recommencer() {
   commandeRef = null; nbPersonnes = 1; panier = {}; optionsPanier = {};
-  // Effacer la session persistante
   localStorage.removeItem('gercafe_cmd_ref');
   localStorage.removeItem('gercafe_cmd_table');
-  // Reset complet de la table dans Firebase
+  // Reset complet Firebase → évite les statuts orphelins entre 2 sessions
   if (numeroTable) {
     db.ref('tables/' + numeroTable).update({
       statut: 'libre',
